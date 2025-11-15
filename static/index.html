@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>PipeOps Load Tester</title>
+        <link rel="stylesheet" href="/static/style.css" />
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    </head>
+    <body>
+        <div class="app-container">
+            <header class="app-header">
+                <div class="header-content">
+                    <div class="brand">
+                        <span class="brand-name">PipeOps</span>
+                        <span class="product-name">Load Tester</span>
+                    </div>
+                    <button
+                        class="theme-toggle"
+                        id="themeToggle"
+                        aria-label="Toggle theme"
+                    >
+                        <span id="themeIcon"></span>
+                        <span id="themeText">Light Mode</span>
+                    </button>
+                </div>
+            </header>
+
+            <main class="app-main">
+                <div class="content-layout">
+                    <!-- CTA Section (shown when no active test) -->
+                    <section class="card cta-card" id="ctaSection">
+                        <div class="cta-content">
+                            <h2>Start Your First Load Test</h2>
+                            <p>
+                                Test your application's performance under load
+                                with real-time metrics and detailed reports.
+                            </p>
+                            <button
+                                class="btn btn-primary btn-lg"
+                                id="openTestModalBtn"
+                            >
+                                New Test
+                            </button>
+                        </div>
+                    </section>
+
+                    <!-- Live Metrics -->
+                    <section
+                        class="card"
+                        id="metricsSection"
+                        style="display: none"
+                    >
+                        <div class="card-header">
+                            <div>
+                                <h2>Live Metrics</h2>
+                                <div class="test-host-info" id="testHostInfo">
+                                    <span class="host-label">Testing:</span>
+                                    <span class="host-url" id="currentHostUrl"
+                                        >-</span
+                                    >
+                                </div>
+                            </div>
+                            <div class="header-actions">
+                                <div class="status-indicator">
+                                    <span class="status-dot"></span>
+                                    <span>Running</span>
+                                </div>
+                                <button
+                                    class="btn-toggle"
+                                    id="advancedMetricsToggle"
+                                >
+                                    <span>Advanced</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="metrics-grid" id="basicMetrics">
+                            <div class="metric">
+                                <div class="metric-label">Total Requests</div>
+                                <div class="metric-value" id="totalRequests">
+                                    0
+                                </div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-label">Success Rate</div>
+                                <div class="metric-value" id="successRate">
+                                    0%
+                                </div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-label">RPS</div>
+                                <div class="metric-value" id="rps">0</div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-label">Avg Latency</div>
+                                <div class="metric-value" id="avgLatency">
+                                    0 ms
+                                </div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-label">Min Latency</div>
+                                <div class="metric-value" id="minLatency">
+                                    0 ms
+                                </div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-label">Max Latency</div>
+                                <div class="metric-value" id="maxLatency">
+                                    0 ms
+                                </div>
+                            </div>
+                        </div>
+
+                        <div
+                            class="metrics-grid advanced-metrics"
+                            id="advancedMetrics"
+                            style="display: none"
+                        >
+                            <div class="metric">
+                                <div class="metric-label">P50 Latency</div>
+                                <div class="metric-value" id="p50Latency">
+                                    0 ms
+                                </div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-label">P95 Latency</div>
+                                <div class="metric-value" id="p95Latency">
+                                    0 ms
+                                </div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-label">P99 Latency</div>
+                                <div class="metric-value" id="p99Latency">
+                                    0 ms
+                                </div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-label">Error Rate</div>
+                                <div class="metric-value" id="errorRate">
+                                    0%
+                                </div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-label">Total Errors</div>
+                                <div class="metric-value" id="totalErrors">
+                                    0
+                                </div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-label">Avg RPS</div>
+                                <div class="metric-value" id="avgRPS">0</div>
+                            </div>
+                        </div>
+
+                        <div class="charts-grid">
+                            <div class="chart-card">
+                                <div class="chart-header">Throughput</div>
+                                <div class="chart-container">
+                                    <canvas id="throughputChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="chart-card">
+                                <div class="chart-header">Response Time</div>
+                                <div class="chart-container">
+                                    <canvas id="latencyChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="chart-card">
+                                <div class="chart-header">Success Rate</div>
+                                <div class="chart-container">
+                                    <canvas id="successRateChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Test History -->
+                    <section class="card" id="historySection">
+                        <div class="card-header">
+                            <h2>Test History</h2>
+                        </div>
+                        <div id="historyList" class="history-list">
+                            <div class="empty-state">Loading history...</div>
+                        </div>
+                    </section>
+                </div>
+            </main>
+        </div>
+
+        <!-- New Test Modal -->
+        <div class="modal-overlay" id="testModal" style="display: none">
+            <div class="modal">
+                <div class="modal-header">
+                    <h2>New Load Test</h2>
+                    <button class="modal-close" id="closeModalBtn">
+                        &times;
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="testForm" class="form">
+                        <div class="form-field">
+                            <label for="host">Target Host</label>
+                            <input
+                                type="text"
+                                id="host"
+                                name="host"
+                                placeholder="https://example.com, 192.168.1.1:8080, api.example.com"
+                                required
+                                class="input"
+                            />
+                            <div class="form-hint">
+                                Supports URLs, IP addresses, IP:port,
+                                hostname:port
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-field">
+                                <label for="users">Users</label>
+                                <input
+                                    type="number"
+                                    id="users"
+                                    name="users"
+                                    min="1"
+                                    max="1000"
+                                    value="10"
+                                    required
+                                    class="input"
+                                />
+                                <div class="form-hint">Max: 1000 users</div>
+                            </div>
+
+                            <div class="form-field">
+                                <label for="rampUp">Ramp Up (s)</label>
+                                <input
+                                    type="number"
+                                    id="rampUp"
+                                    name="rampUp"
+                                    min="1"
+                                    max="60"
+                                    value="5"
+                                    required
+                                    class="input"
+                                />
+                                <div class="form-hint">Max: 60 seconds</div>
+                            </div>
+
+                            <div class="form-field">
+                                <label for="duration">Duration (s)</label>
+                                <input
+                                    type="number"
+                                    id="duration"
+                                    name="duration"
+                                    min="1"
+                                    max="300"
+                                    value="30"
+                                    required
+                                    class="input"
+                                />
+                                <div class="form-hint">
+                                    Max: 300 seconds (5 min)
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Authentication Section -->
+                        <div class="auth-section">
+                            <div class="form-field">
+                                <label>
+                                    <input
+                                        type="checkbox"
+                                        id="enableAuth"
+                                        class="checkbox"
+                                    />
+                                    <span>Enable Authentication</span>
+                                </label>
+                            </div>
+
+                            <div id="authConfig" style="display: none">
+                                <div class="form-field">
+                                    <label for="authType"
+                                        >Authentication Type</label
+                                    >
+                                    <select id="authType" class="input">
+                                        <option value="jwt">JWT Token</option>
+                                        <option value="basic">
+                                            Basic Auth
+                                        </option>
+                                        <option value="header">
+                                            Custom Header
+                                        </option>
+                                    </select>
+                                </div>
+
+                                <!-- JWT Auth -->
+                                <div id="jwtAuth" class="auth-type-config">
+                                    <div class="form-field">
+                                        <label for="jwtToken">JWT Token</label>
+                                        <input
+                                            type="text"
+                                            id="jwtToken"
+                                            class="input"
+                                            placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                                        />
+                                    </div>
+                                </div>
+
+                                <!-- Basic Auth -->
+                                <div
+                                    id="basicAuth"
+                                    class="auth-type-config"
+                                    style="display: none"
+                                >
+                                    <div class="form-field">
+                                        <label for="basicUsername"
+                                            >Username</label
+                                        >
+                                        <input
+                                            type="text"
+                                            id="basicUsername"
+                                            class="input"
+                                            placeholder="username"
+                                        />
+                                    </div>
+                                    <div class="form-field">
+                                        <label for="basicPassword"
+                                            >Password</label
+                                        >
+                                        <input
+                                            type="password"
+                                            id="basicPassword"
+                                            class="input"
+                                            placeholder="password"
+                                        />
+                                    </div>
+                                </div>
+
+                                <!-- Custom Header Auth -->
+                                <div
+                                    id="headerAuth"
+                                    class="auth-type-config"
+                                    style="display: none"
+                                >
+                                    <div class="form-field">
+                                        <label for="headerName"
+                                            >Header Name</label
+                                        >
+                                        <input
+                                            type="text"
+                                            id="headerName"
+                                            class="input"
+                                            placeholder="X-API-Key"
+                                        />
+                                    </div>
+                                    <div class="form-field">
+                                        <label for="headerValue"
+                                            >Header Value</label
+                                        >
+                                        <input
+                                            type="text"
+                                            id="headerValue"
+                                            class="input"
+                                            placeholder="your-api-key"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button
+                                type="button"
+                                class="btn btn-secondary"
+                                id="resetFormBtn"
+                            >
+                                Reset
+                            </button>
+                            <button
+                                type="submit"
+                                id="startBtn"
+                                class="btn btn-primary"
+                            >
+                                Start Test
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <script src="/static/app.js"></script>
+    </body>
+</html>
