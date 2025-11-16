@@ -1013,17 +1013,20 @@ function toggleHistoryDetails(testId) {
 
 async function toggleAdvancedView(testId) {
   const advancedView = document.getElementById(`advanced-view-${testId}`);
+  const button = document.querySelector(
+    `[data-action="advanced"][data-test-id="${testId}"]`,
+  );
 
   if (expandedHistoryItems.has(testId)) {
     // Collapse
     advancedView.style.display = "none";
     expandedHistoryItems.delete(testId);
-    button.textContent = "Advanced View";
+    if (button) button.textContent = "Advanced View";
   } else {
     // Expand
     advancedView.style.display = "block";
     expandedHistoryItems.add(testId);
-    button.textContent = "Hide Advanced";
+    if (button) button.textContent = "Hide Advanced";
 
     // Load advanced metrics if not already loaded
     if (!advancedView.dataset.loaded) {
