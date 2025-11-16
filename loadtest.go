@@ -8,15 +8,15 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
 // parseJSON is a helper function to parse JSON from request body
@@ -72,11 +72,49 @@ type TimeSeriesPoint struct {
 }
 
 func NewTestManager(db *sql.DB) *TestManager {
-	return &TestManager{
+	tm := &TestManager{
 		db:             db,
 		activeTests:    make(map[int64]*TestContext),
 		lastTestStarts: make(map[string]time.Time),
 	}
+
+	// Start periodic cleanup goroutine for rate limit map
+	go tm.cleanupRateLimitMap()
+
+	return tm
+}
+
+// cleanupRateLimitMap periodically removes old entries from the rate limit map
+func (tm *TestManager) cleanupRateLimitMap() {
+	ticker := time.NewTicker(10 * time.Minute) // Run cleanup every 10 minutes
+	defer ticker.Stop()
+
+	for range ticker.C {
+		tm.rateLimitMu.Lock()
+		now := time.Now()
+		for ip, lastStart := range tm.lastTestStarts {
+			// Remove entries older than 1 hour
+			if now.Sub(lastStart) > time.Hour {
+				delete(tm.lastTestStarts, ip)
+			}
+		}
+		tm.rateLimitMu.Unlock()
+	}
+}
+
+// Shutdown gracefully stops all active tests
+func (tm *TestManager) Shutdown() {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+
+	slog.Info("Shutting down active tests", "count", len(tm.activeTests))
+
+	for testID, testCtx := range tm.activeTests {
+		slog.Info("Cancelling test", "test_id", testID)
+		testCtx.Cancel()
+	}
+
+	slog.Info("All active tests cancelled")
 }
 
 const (
@@ -113,6 +151,12 @@ func (tm *TestManager) HandleStartTest(w http.ResponseWriter, r *http.Request) {
 	// Validate host
 	if req.Host == "" {
 		http.Error(w, "Host is required", http.StatusBadRequest)
+		return
+	}
+
+	// Validate host for security (SSRF prevention)
+	if err := validateHost(req.Host); err != nil {
+		http.Error(w, fmt.Sprintf("Invalid host: %v", err), http.StatusBadRequest)
 		return
 	}
 
@@ -165,15 +209,6 @@ func (tm *TestManager) HandleStartTest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	tm.lastTestStarts[clientIP] = now
-	// Clean up old entries periodically (keep map size reasonable)
-	if len(tm.lastTestStarts) > 1000 {
-		// Remove entries older than 1 hour
-		for ip, t := range tm.lastTestStarts {
-			if now.Sub(t) > time.Hour {
-				delete(tm.lastTestStarts, ip)
-			}
-		}
-	}
 	tm.rateLimitMu.Unlock()
 
 	// Create test run
@@ -231,6 +266,9 @@ func (tm *TestManager) HandleStartTest(w http.ResponseWriter, r *http.Request) {
 
 func (tm *TestManager) runLoadTest(ctx context.Context, testCtx *TestContext) {
 	defer func() {
+		// Calculate final metrics before cleanup
+		tm.calculateAndSaveMetrics(testCtx)
+
 		testCtx.IsRunning.Store(false)
 		tm.mu.Lock()
 		delete(tm.activeTests, testCtx.TestRun.ID)
@@ -309,9 +347,6 @@ func (tm *TestManager) runLoadTest(ctx context.Context, testCtx *TestContext) {
 		close(stopChan)
 		wg.Wait()
 	}
-
-	// Calculate final metrics
-	tm.calculateAndSaveMetrics(testCtx)
 }
 
 func (tm *TestManager) runUser(ctx context.Context, testRunID int64, host string, metrics *MetricsCollector, wg *sync.WaitGroup, stopChan <-chan struct{}, authConfig *AuthConfig) {
@@ -336,8 +371,8 @@ func (tm *TestManager) runUser(ctx context.Context, testRunID int64, host string
 		case <-ticker.C:
 			start := time.Now()
 
-			// Create request with authentication
-			req, err := http.NewRequest("GET", targetURL, nil)
+			// Create request with authentication and context
+			req, err := http.NewRequestWithContext(ctx, "GET", targetURL, nil)
 			if err != nil {
 				metrics.Record(time.Since(start).Seconds()*1000, false, 0)
 				continue
@@ -354,8 +389,12 @@ func (tm *TestManager) runUser(ctx context.Context, testRunID int64, host string
 			statusCode := 0
 			if resp != nil {
 				statusCode = resp.StatusCode
-				io.Copy(io.Discard, resp.Body)
-				resp.Body.Close()
+				if _, err := io.Copy(io.Discard, resp.Body); err != nil {
+					slog.Warn("Error reading response body", "error", err, "url", targetURL)
+				}
+				if err := resp.Body.Close(); err != nil {
+					slog.Warn("Error closing response body", "error", err, "url", targetURL)
+				}
 			}
 
 			metrics.Record(latency, success, statusCode)
@@ -368,7 +407,7 @@ func (tm *TestManager) runUser(ctx context.Context, testRunID int64, host string
 				StatusCode: statusCode,
 			}
 			if err := SaveRequestMetric(tm.db, metric); err != nil {
-				log.Printf("Failed to save request metric: %v", err)
+				slog.Error("Failed to save request metric", "error", err, "test_id", testRunID)
 			}
 		}
 	}
@@ -405,6 +444,67 @@ func applyAuth(req *http.Request, authConfig *AuthConfig) {
 }
 
 // normalizeHost converts various host formats to a valid HTTP URL
+// validateHost validates the host input to prevent SSRF and other security issues
+func validateHost(host string) error {
+	host = strings.TrimSpace(host)
+	if host == "" {
+		return fmt.Errorf("host cannot be empty")
+	}
+
+	// Try parsing as URL first
+	var urlToCheck string
+	if strings.Contains(host, "://") {
+		urlToCheck = host
+	} else {
+		// Add scheme for parsing
+		urlToCheck = "http://" + host
+	}
+
+	parsedURL, err := url.Parse(urlToCheck)
+	if err != nil {
+		return fmt.Errorf("invalid host format: %v", err)
+	}
+
+	// Block dangerous schemes
+	scheme := strings.ToLower(parsedURL.Scheme)
+	if scheme != "" && scheme != "http" && scheme != "https" {
+		return fmt.Errorf("only HTTP and HTTPS schemes are allowed, got: %s", scheme)
+	}
+
+	// Extract hostname for validation
+	hostname := parsedURL.Hostname()
+	if hostname == "" {
+		// For cases like "192.168.1.1:8080" without scheme
+		parts := strings.Split(host, ":")
+		hostname = parts[0]
+	}
+
+	// Block localhost and loopback
+	if hostname == "localhost" || hostname == "127.0.0.1" || hostname == "::1" {
+		return fmt.Errorf("localhost and loopback addresses are not allowed")
+	}
+
+	// Block private IP ranges
+	if isLocalIP(hostname) {
+		return fmt.Errorf("private IP addresses are not allowed")
+	}
+
+	// Block metadata services (cloud providers)
+	metadataHosts := []string{
+		"169.254.169.254", // AWS, Azure, GCP metadata
+		"metadata.google.internal",
+		"169.254.169.123", // Oracle Cloud
+		"100.100.100.200", // Alibaba Cloud
+	}
+	for _, meta := range metadataHosts {
+		if hostname == meta {
+			return fmt.Errorf("metadata service addresses are not allowed")
+		}
+	}
+
+	return nil
+}
+
 func normalizeHost(host string) string {
 	host = strings.TrimSpace(host)
 
@@ -511,8 +611,8 @@ func (tm *TestManager) calculateAndSaveMetrics(testCtx *TestContext) {
 	testRun.MaxLatency = maxLatency
 	testRun.RPS = rps
 
-	if err := UpdateTestRun(tm.db, testRun); err != nil {
-		log.Printf("Failed to update test run: %v", err)
+	if err := UpdateTestRun(tm.db, testCtx.TestRun); err != nil {
+		slog.Error("Failed to update test run", "error", err, "test_id", testCtx.TestRun.ID)
 	}
 }
 

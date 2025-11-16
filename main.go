@@ -1,35 +1,61 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
+	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
 )
 
+var logger *slog.Logger
+
+// contextKey is a custom type for context keys to avoid collisions
+type contextKey string
+
+const requestIDKey contextKey = "request_id"
+
 func main() {
+	// Initialize structured logging
+	logger = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
+	slog.SetDefault(logger)
+
+	logger.Info("Starting PipeOps Load Tester", "version", "1.0.0")
+
 	// Initialize database
 	db, err := InitDB()
 	if err != nil {
+		logger.Error("Failed to initialize database", "error", err)
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			logger.Error("Error closing database", "error", err)
+		}
+	}()
 
 	// Create test manager
 	testManager := NewTestManager(db)
 
-	// Setup routes
-	http.HandleFunc("/", serveIndex)
-	http.HandleFunc("/api/start", testManager.HandleStartTest)
-	http.HandleFunc("/api/status/", testManager.HandleGetStatus)
-	http.HandleFunc("/api/metrics/", testManager.HandleGetMetrics)
-	http.HandleFunc("/api/timeseries/", testManager.HandleGetTimeSeries)
-	http.HandleFunc("/api/history", testManager.HandleGetHistory)
-	http.HandleFunc("/api/historical-metrics/", testManager.HandleGetHistoricalMetrics)
-	http.HandleFunc("/api/stop/", testManager.HandleStopTest)
-	http.HandleFunc("/api/report/", testManager.HandleGenerateReport)
+	// Setup routes with request ID middleware
+	http.HandleFunc("/", requestIDMiddleware(serveIndex))
+	http.HandleFunc("/api/start", requestIDMiddleware(testManager.HandleStartTest))
+	http.HandleFunc("/api/status/", requestIDMiddleware(testManager.HandleGetStatus))
+	http.HandleFunc("/api/metrics/", requestIDMiddleware(testManager.HandleGetMetrics))
+	http.HandleFunc("/api/timeseries/", requestIDMiddleware(testManager.HandleGetTimeSeries))
+	http.HandleFunc("/api/history", requestIDMiddleware(testManager.HandleGetHistory))
+	http.HandleFunc("/api/historical-metrics/", requestIDMiddleware(testManager.HandleGetHistoricalMetrics))
+	http.HandleFunc("/api/stop/", requestIDMiddleware(testManager.HandleStopTest))
+	http.HandleFunc("/api/report/", requestIDMiddleware(testManager.HandleGenerateReport))
 
 	// Serve static files
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
@@ -45,8 +71,74 @@ func main() {
 		port = ":" + port
 	}
 
-	fmt.Printf("PipeOps Load Tester running on http://localhost%s\n", port)
-	log.Fatal(http.ListenAndServe(port, nil))
+	// Create HTTP server
+	server := &http.Server{
+		Addr:         port,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	}
+
+	// Channel to listen for shutdown signals
+	shutdown := make(chan os.Signal, 1)
+	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+
+	// Start server in a goroutine
+	go func() {
+		logger.Info("Server starting", "port", port, "address", fmt.Sprintf("http://localhost%s", port))
+		fmt.Printf("PipeOps Load Tester running on http://localhost%s\n", port)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Error("Server failed to start", "error", err)
+			log.Fatalf("Server failed to start: %v", err)
+		}
+	}()
+
+	// Wait for shutdown signal
+	<-shutdown
+	logger.Info("Shutdown signal received, initiating graceful shutdown")
+
+	// Stop all active tests
+	testManager.Shutdown()
+
+	// Create a deadline for shutdown
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Attempt graceful shutdown
+	if err := server.Shutdown(ctx); err != nil {
+		logger.Error("Server forced to shutdown", "error", err)
+	}
+
+	logger.Info("Server exited gracefully")
+}
+
+// requestIDMiddleware adds a unique request ID to each request
+func requestIDMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Check if request ID exists in header, otherwise generate one
+		requestID := r.Header.Get("X-Request-ID")
+		if requestID == "" {
+			requestID = uuid.New().String()
+		}
+
+		// Add request ID to response header
+		w.Header().Set("X-Request-ID", requestID)
+
+		// Add request ID to context
+		ctx := context.WithValue(r.Context(), requestIDKey, requestID)
+		r = r.WithContext(ctx)
+
+		// Log request with ID
+		slog.InfoContext(ctx, "Incoming request",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"remote_addr", r.RemoteAddr,
+			"request_id", requestID,
+		)
+
+		// Call next handler
+		next(w, r)
+	}
 }
 
 func serveIndex(w http.ResponseWriter, r *http.Request) {
