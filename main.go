@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -33,7 +34,17 @@ func main() {
 	// Serve static files
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
-	port := ":8080"
+	// Get port from environment variable or default to 8080
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	// Add colon if not present
+	if port[0] != ':' {
+		port = ":" + port
+	}
+
 	fmt.Printf("PipeOps Load Tester running on http://localhost%s\n", port)
 	log.Fatal(http.ListenAndServe(port, nil))
 }

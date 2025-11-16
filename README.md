@@ -33,18 +33,67 @@ A professional load testing and performance analysis tool built by PipeOps. Desi
    go mod download
    ```
 
+## Building
+
+The load tester uses SQLite, which requires CGO to be enabled:
+
+**Option 1: Use the build script (recommended)**
+
+```bash
+./build.sh
+```
+
+**Option 2: Build manually**
+
+```bash
+CGO_ENABLED=1 go build -o load-tester .
+```
+
+**Note:** CGO must be enabled because the `go-sqlite3` driver requires it. If you see an error about `CGO_ENABLED=0`, make sure to build with `CGO_ENABLED=1`.
+
+## Deployment
+
+### Railway (Recommended)
+
+The easiest way to deploy is using Railway:
+
+1. Push your code to GitHub
+2. Go to [railway.app](https://railway.app)
+3. Click "New Project" → "Deploy from GitHub repo"
+4. Select your repository
+5. Railway automatically detects `nixpacks.toml` and deploys with CGO enabled
+
+**See [DEPLOY_README.md](DEPLOY_README.md) for quick deployment instructions.**
+
+### Docker
+
+**Quick Start:**
+
+```bash
+docker build -t pipeops-load-tester .
+docker run -d -p 8080:8080 pipeops-load-tester
+```
+
+**With Docker Compose:**
+
+```bash
+docker-compose up -d
+```
+
+**Full deployment guide:** See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions on Railway, Docker, Render, Fly.io, and other platforms.
+
 ## Usage
 
 1. Start the server:
 
    ```bash
-   go run .
+   CGO_ENABLED=1 go run .
    ```
 
    Or build and run:
 
    ```bash
-   go build -o load-tester .
+   ./build.sh
    ./load-tester
    ```
 
@@ -150,4 +199,5 @@ This tells you that while most requests are fast (~45ms), 5% of users experience
 ## License
 
 Copyright © 2024 PipeOps. All rights reserved.
+
 # load-tester
