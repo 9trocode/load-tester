@@ -23,6 +23,7 @@ go.work
 *.sqlite
 *.sqlite3
 
+
 # IDE
 .idea/
 .vscode/
@@ -33,4 +34,3 @@ go.work
 # OS
 .DS_Store
 Thumbs.db
-
