@@ -924,7 +924,7 @@ function displayHistory(history) {
         : 0;
 
     htmlParts[i] = `
-        <div class="history-item" data-test-id="${test.id}">
+        <div class="history-item" data-test-id="${test.id}" data-test-uuid="${test.uuid}">
             <div class="history-item-header">
                 <div class="history-item-url">${escapeHtml(maskUrl(test.host))}</div>
                 <div class="history-item-meta">
@@ -964,10 +964,10 @@ function displayHistory(history) {
                     </div>
                 </div>
                 <div class="history-item-actions">
-                    <button class="btn btn-secondary btn-sm" data-action="advanced" data-test-id="${test.id}">
+                    <button class="btn btn-secondary btn-sm" data-action="advanced" data-test-id="${test.id}" data-test-uuid="${test.uuid}">
                         Advanced View
                     </button>
-                    <button class="btn btn-secondary btn-sm" data-action="download" data-test-id="${test.id}">
+                    <button class="btn btn-secondary btn-sm" data-action="download" data-test-id="${test.id}" data-test-uuid="${test.uuid}">
                         Download Report
                     </button>
                 </div>
@@ -1011,7 +1011,7 @@ function toggleHistoryDetails(testId) {
   }
 }
 
-async function toggleAdvancedView(testId) {
+async function toggleAdvancedView(testId, testUUID) {
   const advancedView = document.getElementById(`advanced-view-${testId}`);
   const button = document.querySelector(
     `[data-action="advanced"][data-test-id="${testId}"]`,
@@ -1030,16 +1030,16 @@ async function toggleAdvancedView(testId) {
 
     // Load advanced metrics if not already loaded
     if (!advancedView.dataset.loaded) {
-      await loadAdvancedMetrics(testId);
+      await loadAdvancedMetrics(testId, testUUID);
     }
   }
 }
 
-async function loadAdvancedMetrics(testId) {
+async function loadAdvancedMetrics(testId, testUUID) {
   const advancedView = document.getElementById(`advanced-view-${testId}`);
 
   try {
-    const response = await fetch(`/api/historical-metrics/${testId}`);
+    const response = await fetch(`/api/historical-metrics/${testUUID}`);
     if (!response.ok) {
       throw new Error("Failed to load advanced metrics");
     }
@@ -1192,9 +1192,9 @@ function renderHistoryCharts(testId, timeSeries) {
   }
 }
 
-async function downloadReport(testId) {
+async function downloadReport(testId, testUUID) {
   try {
-    const response = await fetch(`/api/report/${testId}`);
+    const response = await fetch(`/api/report/${testUUID}`);
     if (!response.ok) {
       throw new Error("Failed to generate PDF");
     }
@@ -1295,14 +1295,15 @@ function setupEventDelegation() {
     if (!historyItem) return;
 
     const testId = parseInt(historyItem.dataset.testId);
+    const testUUID = historyItem.dataset.testUuid;
 
     // Handle button clicks
     if (e.target.tagName === "BUTTON") {
       const action = e.target.dataset.action;
       if (action === "advanced") {
-        toggleAdvancedView(testId);
+        toggleAdvancedView(testId, testUUID);
       } else if (action === "download") {
-        downloadReport(testId);
+        downloadReport(testId, testUUID);
       }
       return;
     }
