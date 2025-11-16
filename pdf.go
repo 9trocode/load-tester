@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jung-kurt/gofpdf"
@@ -25,6 +26,25 @@ var (
 	colorPanel       = pdfColor{248, 250, 252}
 	colorSectionFill = pdfColor{226, 232, 240}
 )
+
+// String builder pool for memory optimization
+var stringBuilderPool = sync.Pool{
+	New: func() interface{} {
+		return &strings.Builder{}
+	},
+}
+
+// Get a string builder from pool
+func getStringBuilder() *strings.Builder {
+	sb := stringBuilderPool.Get().(*strings.Builder)
+	sb.Reset()
+	return sb
+}
+
+// Return string builder to pool
+func putStringBuilder(sb *strings.Builder) {
+	stringBuilderPool.Put(sb)
+}
 
 type metricCard struct {
 	Label  string
@@ -262,15 +282,16 @@ func renderTimeSeriesTable(pdf *gofpdf.Fpdf, points []TimeSeriesPoint) {
 		step = 1
 	}
 
+	// Pre-allocate cells array to reduce allocations
+	cells := make([]string, 5)
+
 	for i := 0; i < len(points); i += step {
-		point := points[i]
-		cells := []string{
-			point.Timestamp.Local().Format("15:04:05"),
-			formatFloat(point.RPS, 2),
-			formatLatencyValue(point.AvgLatency),
-			formatPercentage(point.SuccessRate, 1),
-			formatWithCommas(point.Requests),
-		}
+		point := &points[i] // Use pointer to avoid copying
+		cells[0] = point.Timestamp.Local().Format("15:04:05")
+		cells[1] = formatFloat(point.RPS, 2)
+		cells[2] = formatLatencyValue(point.AvgLatency)
+		cells[3] = formatPercentage(point.SuccessRate, 1)
+		cells[4] = formatWithCommas(point.Requests)
 
 		for col := range headers {
 			ln := 0
@@ -324,7 +345,7 @@ func renderKeyValueRows(pdf *gofpdf.Fpdf, rows []kvRow) {
 
 func analyzeTimeSeries(points []TimeSeriesPoint) timeSeriesSummary {
 	summary := timeSeriesSummary{
-		LatencyPercentiles: make(map[string]float64),
+		LatencyPercentiles: make(map[string]float64, 3),
 	}
 
 	if len(points) == 0 {
@@ -341,11 +362,14 @@ func analyzeTimeSeries(points []TimeSeriesPoint) timeSeriesSummary {
 		summary.Duration = time.Duration(summary.SampleCount-1) * time.Second
 	}
 
+	// Pre-allocate slices with exact capacity
 	latencies := make([]float64, 0, len(points))
 	rpsValues := make([]float64, 0, len(points))
 	successRates := make([]float64, 0, len(points))
 
-	for _, point := range points {
+	// Single loop with direct append
+	for i := range points {
+		point := &points[i] // Use pointer to avoid copying
 		if point.RPS > summary.PeakRPS {
 			summary.PeakRPS = point.RPS
 		}
@@ -526,22 +550,25 @@ func formatWithCommas(value int64) string {
 		return s
 	}
 
-	var builder strings.Builder
+	// Use pooled string builder
+	sb := getStringBuilder()
+	defer putStringBuilder(sb)
+
 	if negative {
-		builder.WriteByte('-')
+		sb.WriteByte('-')
 	}
 
 	prefix := len(s) % 3
 	if prefix == 0 {
 		prefix = 3
 	}
-	builder.WriteString(s[:prefix])
+	sb.WriteString(s[:prefix])
 	for i := prefix; i < len(s); i += 3 {
-		builder.WriteByte(',')
-		builder.WriteString(s[i : i+3])
+		sb.WriteByte(',')
+		sb.WriteString(s[i : i+3])
 	}
 
-	return builder.String()
+	return sb.String()
 }
 
 func calculatePercentage(part, total int64) float64 {
@@ -609,14 +636,25 @@ func generateTestSummary(testRun *TestRun) string {
 		userText = "users"
 	}
 
-	return fmt.Sprintf(
-		"Tested %s with %d virtual %s for %s - %.1f%% success rate, %.2f RPS, %.2f ms avg latency",
-		maskTargetHost(testRun.Host),
-		testRun.TotalUsers,
-		userText,
-		formatDurationFromSeconds(testRun.Duration),
-		successRate,
-		testRun.RPS,
-		testRun.AvgLatency,
-	)
+	// Use string builder for better performance
+	sb := getStringBuilder()
+	defer putStringBuilder(sb)
+
+	sb.WriteString("Tested ")
+	sb.WriteString(maskTargetHost(testRun.Host))
+	sb.WriteString(" with ")
+	sb.WriteString(strconv.Itoa(testRun.TotalUsers))
+	sb.WriteString(" virtual ")
+	sb.WriteString(userText)
+	sb.WriteString(" for ")
+	sb.WriteString(formatDurationFromSeconds(testRun.Duration))
+	sb.WriteString(" - ")
+	sb.WriteString(fmt.Sprintf("%.1f", successRate))
+	sb.WriteString("% success rate, ")
+	sb.WriteString(fmt.Sprintf("%.2f", testRun.RPS))
+	sb.WriteString(" RPS, ")
+	sb.WriteString(fmt.Sprintf("%.2f", testRun.AvgLatency))
+	sb.WriteString(" ms avg latency")
+
+	return sb.String()
 }

@@ -279,12 +279,15 @@ select.input {
     font-size: 0.8125rem;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.15s;
+    transition:
+        background-color 0.15s ease,
+        transform 0.15s ease;
     font-family: inherit;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.375rem;
+    will-change: transform;
 }
 
 .btn-primary {
@@ -294,7 +297,7 @@ select.input {
 
 .btn-primary:hover {
     background: var(--pipeops-primary-dark);
-    transform: translateY(-1px);
+    transform: translate3d(0, -1px, 0);
 }
 
 .btn-danger {
@@ -335,6 +338,7 @@ select.input {
     border-radius: 50%;
     background: var(--pipeops-success);
     animation: pulse 2s infinite;
+    will-change: opacity;
 }
 
 @keyframes pulse {
@@ -354,6 +358,7 @@ select.input {
     border-radius: 8px;
     padding: 1.5rem;
     margin-bottom: 1.5rem;
+    contain: layout style paint;
 }
 
 .overview-stats {
@@ -427,6 +432,8 @@ select.input {
     );
     transition: width 0.3s ease;
     border-radius: 4px;
+    will-change: width;
+    transform: translateZ(0);
 }
 
 /* Metrics Grid */
@@ -439,6 +446,7 @@ select.input {
     background: var(--pipeops-bg);
     border-radius: 6px;
     border: 1px solid var(--pipeops-border);
+    contain: layout style;
 }
 
 .metric {
@@ -468,6 +476,7 @@ select.input {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 1rem;
+    contain: layout;
 }
 
 .chart-card {
@@ -475,6 +484,7 @@ select.input {
     border: 1px solid var(--pipeops-border);
     border-radius: 6px;
     padding: 1rem;
+    contain: layout style paint;
 }
 
 .chart-header {
@@ -487,6 +497,7 @@ select.input {
 .chart-container {
     position: relative;
     height: 200px;
+    contain: strict;
 }
 
 .chart-container canvas {
@@ -498,6 +509,7 @@ select.input {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
+    contain: layout;
 }
 
 .history-item {
@@ -506,13 +518,17 @@ select.input {
     border-left: 2px solid var(--pipeops-primary);
     border-radius: 6px;
     padding: 1rem;
-    transition: all 0.15s;
+    transition:
+        border-color 0.15s ease,
+        transform 0.15s ease;
     cursor: pointer;
+    contain: layout style paint;
+    will-change: transform, border-color;
 }
 
 .history-item:hover {
     border-color: var(--pipeops-primary);
-    transform: translateX(2px);
+    transform: translate3d(2px, 0, 0);
 }
 
 .history-item.expanded {
@@ -728,6 +744,7 @@ select.input {
     justify-content: center;
     z-index: 1000;
     backdrop-filter: blur(4px);
+    will-change: opacity;
 }
 
 .modal {
@@ -739,6 +756,7 @@ select.input {
     max-height: 90vh;
     overflow-y: auto;
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+    contain: layout style paint;
 }
 
 .modal-header {

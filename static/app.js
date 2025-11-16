@@ -11,6 +11,72 @@ let testDurationSeconds = null;
 let testUsers = null;
 let collapsedHistoryItems = new Set(); // Track collapsed state (all start collapsed)
 
+// DOM cache for performance
+const domCache = {
+  ctaSection: null,
+  metricsSection: null,
+  historySection: null,
+  historyList: null,
+  virtualUsers: null,
+  elapsedTime: null,
+  remainingTime: null,
+  testDuration: null,
+  progressPercentage: null,
+  progressBarFill: null,
+  currentHostUrl: null,
+  totalRequests: null,
+  successRate: null,
+  rps: null,
+  avgLatency: null,
+  minLatency: null,
+  maxLatency: null,
+  p50Latency: null,
+  p95Latency: null,
+  p99Latency: null,
+  errorRate: null,
+  totalErrors: null,
+  avgRPS: null,
+};
+
+// Initialize DOM cache
+function initDOMCache() {
+  domCache.ctaSection = document.getElementById("ctaSection");
+  domCache.metricsSection = document.getElementById("metricsSection");
+  domCache.historySection = document.getElementById("historySection");
+  domCache.historyList = document.getElementById("historyList");
+  domCache.virtualUsers = document.getElementById("virtualUsers");
+  domCache.elapsedTime = document.getElementById("elapsedTime");
+  domCache.remainingTime = document.getElementById("remainingTime");
+  domCache.testDuration = document.getElementById("testDuration");
+  domCache.progressPercentage = document.getElementById("progressPercentage");
+  domCache.progressBarFill = document.getElementById("progressBarFill");
+  domCache.currentHostUrl = document.getElementById("currentHostUrl");
+  domCache.totalRequests = document.getElementById("totalRequests");
+  domCache.successRate = document.getElementById("successRate");
+  domCache.rps = document.getElementById("rps");
+  domCache.avgLatency = document.getElementById("avgLatency");
+  domCache.minLatency = document.getElementById("minLatency");
+  domCache.maxLatency = document.getElementById("maxLatency");
+  domCache.p50Latency = document.getElementById("p50Latency");
+  domCache.p95Latency = document.getElementById("p95Latency");
+  domCache.p99Latency = document.getElementById("p99Latency");
+  domCache.errorRate = document.getElementById("errorRate");
+  domCache.totalErrors = document.getElementById("totalErrors");
+  domCache.avgRPS = document.getElementById("avgRPS");
+}
+
+// Throttle function for performance
+function throttle(func, delay) {
+  let lastCall = 0;
+  return function (...args) {
+    const now = Date.now();
+    if (now - lastCall >= delay) {
+      lastCall = now;
+      return func.apply(this, args);
+    }
+  };
+}
+
 // URL masking function - completely masks URLs showing only protocol and domain
 function maskUrl(url) {
   if (!url) return "-";
@@ -386,18 +452,18 @@ document.getElementById("testForm").addEventListener("submit", async (e) => {
     // Store host for display
     document.getElementById("currentHostUrl").textContent = maskUrl(host);
 
-    // Update overview fields
-    document.getElementById("virtualUsers").textContent = users;
-    document.getElementById("testDuration").textContent = duration + "s";
-    document.getElementById("elapsedTime").textContent = "0s";
-    document.getElementById("remainingTime").textContent = duration + "s";
-    document.getElementById("progressPercentage").textContent = "0%";
-    document.getElementById("progressBarFill").style.width = "0%";
+    // Update overview fields using cache
+    domCache.virtualUsers.textContent = users;
+    domCache.testDuration.textContent = duration + "s";
+    domCache.elapsedTime.textContent = "0s";
+    domCache.remainingTime.textContent = duration + "s";
+    domCache.progressPercentage.textContent = "0%";
+    domCache.progressBarFill.style.width = "0%";
 
     closeTestModal();
-    document.getElementById("ctaSection").style.display = "none";
-    document.getElementById("metricsSection").style.display = "block";
-    document.getElementById("historySection").style.display = "none";
+    domCache.ctaSection.style.display = "none";
+    domCache.metricsSection.style.display = "block";
+    domCache.historySection.style.display = "none";
 
     // Reset charts
     resetCharts();
@@ -447,9 +513,9 @@ function startMetricsPolling() {
       if (!metrics.is_running) {
         stopMetricsPolling();
         stopTimeSeriesPolling();
-        document.getElementById("ctaSection").style.display = "block";
-        document.getElementById("metricsSection").style.display = "none";
-        document.getElementById("historySection").style.display = "block";
+        domCache.ctaSection.style.display = "block";
+        domCache.metricsSection.style.display = "none";
+        domCache.historySection.style.display = "block";
         currentTestId = null;
         testStartTime = null;
         testDurationSeconds = null;
@@ -498,7 +564,8 @@ function stopMetricsPolling() {
   }
 }
 
-function updateMetrics(metrics) {
+// Throttled update for better performance
+const updateMetricsThrottled = throttle(function (metrics) {
   // Update live overview (elapsed time, remaining time, progress)
   if (testStartTime && testDurationSeconds) {
     const elapsedSeconds = Math.floor((Date.now() - testStartTime) / 1000);
@@ -508,49 +575,46 @@ function updateMetrics(metrics) {
       (elapsedSeconds / testDurationSeconds) * 100,
     );
 
-    document.getElementById("elapsedTime").textContent =
-      formatTime(elapsedSeconds);
-    document.getElementById("remainingTime").textContent =
-      formatTime(remainingSeconds);
-    document.getElementById("progressPercentage").textContent =
-      progressPercent.toFixed(1) + "%";
-    document.getElementById("progressBarFill").style.width =
-      progressPercent + "%";
+    domCache.elapsedTime.textContent = formatTime(elapsedSeconds);
+    domCache.remainingTime.textContent = formatTime(remainingSeconds);
+    domCache.progressPercentage.textContent = progressPercent.toFixed(1) + "%";
+    domCache.progressBarFill.style.width = progressPercent + "%";
   }
 
-  // Basic metrics
-  document.getElementById("totalRequests").textContent =
-    metrics.total_requests.toLocaleString();
+  // Batch DOM updates
+  requestAnimationFrame(() => {
+    // Basic metrics
+    domCache.totalRequests.textContent =
+      metrics.total_requests.toLocaleString();
 
-  const successRate =
-    metrics.total_requests > 0
-      ? ((metrics.success_count / metrics.total_requests) * 100).toFixed(1)
-      : 0;
-  document.getElementById("successRate").textContent = successRate + "%";
+    const successRate =
+      metrics.total_requests > 0
+        ? ((metrics.success_count / metrics.total_requests) * 100).toFixed(1)
+        : 0;
+    domCache.successRate.textContent = successRate + "%";
 
-  document.getElementById("rps").textContent = metrics.rps.toFixed(2);
-  document.getElementById("avgLatency").textContent =
-    metrics.avg_latency.toFixed(2) + " ms";
-  document.getElementById("minLatency").textContent =
-    metrics.min_latency.toFixed(2) + " ms";
-  document.getElementById("maxLatency").textContent =
-    metrics.max_latency.toFixed(2) + " ms";
+    domCache.rps.textContent = metrics.rps.toFixed(2);
+    domCache.avgLatency.textContent = metrics.avg_latency.toFixed(2) + " ms";
+    domCache.minLatency.textContent = metrics.min_latency.toFixed(2) + " ms";
+    domCache.maxLatency.textContent = metrics.max_latency.toFixed(2) + " ms";
 
-  // Advanced metrics
-  document.getElementById("p50Latency").textContent =
-    (metrics.p50_latency || 0).toFixed(2) + " ms";
-  document.getElementById("p95Latency").textContent =
-    (metrics.p95_latency || 0).toFixed(2) + " ms";
-  document.getElementById("p99Latency").textContent =
-    (metrics.p99_latency || 0).toFixed(2) + " ms";
-  document.getElementById("errorRate").textContent =
-    (metrics.error_rate || 0).toFixed(2) + "%";
-  document.getElementById("totalErrors").textContent = (
-    metrics.error_count || 0
-  ).toLocaleString();
-  document.getElementById("avgRPS").textContent = (
-    metrics.avg_rps || 0
-  ).toFixed(2);
+    // Advanced metrics
+    domCache.p50Latency.textContent =
+      (metrics.p50_latency || 0).toFixed(2) + " ms";
+    domCache.p95Latency.textContent =
+      (metrics.p95_latency || 0).toFixed(2) + " ms";
+    domCache.p99Latency.textContent =
+      (metrics.p99_latency || 0).toFixed(2) + " ms";
+    domCache.errorRate.textContent = (metrics.error_rate || 0).toFixed(2) + "%";
+    domCache.totalErrors.textContent = (
+      metrics.error_count || 0
+    ).toLocaleString();
+    domCache.avgRPS.textContent = (metrics.avg_rps || 0).toFixed(2);
+  });
+}, 100); // Throttle to max 10 updates per second
+
+function updateMetrics(metrics) {
+  updateMetricsThrottled(metrics);
 }
 
 function formatTime(seconds) {
@@ -562,37 +626,52 @@ function formatTime(seconds) {
   return minutes + "m " + remainingSeconds + "s";
 }
 
-function updateCharts(timeSeries) {
+// Throttled chart updates
+const updateChartsThrottled = throttle(function (timeSeries) {
   if (!timeSeries || timeSeries.length === 0) return;
 
   const recentData = timeSeries.slice(-60);
 
-  const labels = recentData.map((point) => {
-    const date = new Date(point.timestamp);
-    return date.toLocaleTimeString();
+  // Pre-allocate arrays for better performance
+  const dataLength = recentData.length;
+  const labels = new Array(dataLength);
+  const rpsData = new Array(dataLength);
+  const latencyData = new Array(dataLength);
+  const successRateData = new Array(dataLength);
+
+  // Single loop instead of multiple map calls
+  for (let i = 0; i < dataLength; i++) {
+    const point = recentData[i];
+    labels[i] = new Date(point.timestamp).toLocaleTimeString();
+    rpsData[i] = point.rps;
+    latencyData[i] = point.avg_latency;
+    successRateData[i] = point.success_rate;
+  }
+
+  // Batch chart updates
+  requestAnimationFrame(() => {
+    if (throughputChart) {
+      throughputChart.data.labels = labels;
+      throughputChart.data.datasets[0].data = rpsData;
+      throughputChart.update("none");
+    }
+
+    if (latencyChart) {
+      latencyChart.data.labels = labels;
+      latencyChart.data.datasets[0].data = latencyData;
+      latencyChart.update("none");
+    }
+
+    if (successRateChart) {
+      successRateChart.data.labels = labels;
+      successRateChart.data.datasets[0].data = successRateData;
+      successRateChart.update("none");
+    }
   });
+}, 500); // Throttle to max 2 updates per second
 
-  const rpsData = recentData.map((point) => point.rps);
-  const latencyData = recentData.map((point) => point.avg_latency);
-  const successRateData = recentData.map((point) => point.success_rate);
-
-  if (throughputChart) {
-    throughputChart.data.labels = labels;
-    throughputChart.data.datasets[0].data = rpsData;
-    throughputChart.update("none");
-  }
-
-  if (latencyChart) {
-    latencyChart.data.labels = labels;
-    latencyChart.data.datasets[0].data = latencyData;
-    latencyChart.update("none");
-  }
-
-  if (successRateChart) {
-    successRateChart.data.labels = labels;
-    successRateChart.data.datasets[0].data = successRateData;
-    successRateChart.update("none");
-  }
+function updateCharts(timeSeries) {
+  updateChartsThrottled(timeSeries);
 }
 
 async function loadHistory() {
@@ -608,25 +687,23 @@ async function loadHistory() {
     console.error("Error loading history:", error);
     // On error, show CTA if no test is running
     if (!currentTestId) {
-      document.getElementById("ctaSection").style.display = "block";
-      document.getElementById("historySection").style.display = "none";
+      domCache.ctaSection.style.display = "block";
+      domCache.historySection.style.display = "none";
     } else {
-      document.getElementById("historyList").innerHTML =
+      domCache.historyList.innerHTML =
         '<div class="empty-state">Error loading history</div>';
     }
   }
 }
 
 function displayHistory(history) {
-  const historyList = document.getElementById("historyList");
-
   if (history.length === 0) {
     // Show CTA if no test is running, otherwise show empty state
     if (!currentTestId) {
-      document.getElementById("ctaSection").style.display = "block";
-      document.getElementById("historySection").style.display = "none";
+      domCache.ctaSection.style.display = "block";
+      domCache.historySection.style.display = "none";
     } else {
-      historyList.innerHTML =
+      domCache.historyList.innerHTML =
         '<div class="empty-state">No test history yet. Start your first test to see results here.</div>';
     }
     return;
@@ -634,14 +711,25 @@ function displayHistory(history) {
 
   // Show CTA if there's 1 or more history items and no test is running
   if (!currentTestId) {
-    document.getElementById("ctaSection").style.display = "block";
-    document.getElementById("historySection").style.display = "block";
+    domCache.ctaSection.style.display = "block";
+    domCache.historySection.style.display = "block";
   }
 
-  historyList.innerHTML = history
-    .map(
-      (test) => `
-        <div class="history-item" id="history-item-${test.id}" onclick="toggleHistoryDetails(${test.id}, event)">
+  // Use DocumentFragment for better performance
+  const fragment = document.createDocumentFragment();
+  const tempDiv = document.createElement("div");
+
+  // Build HTML in single pass
+  const htmlParts = new Array(history.length);
+  for (let i = 0; i < history.length; i++) {
+    const test = history[i];
+    const successRate =
+      test.total_requests > 0
+        ? ((test.success_count / test.total_requests) * 100).toFixed(1)
+        : 0;
+
+    htmlParts[i] = `
+        <div class="history-item" data-test-id="${test.id}">
             <div class="history-item-header">
                 <div class="history-item-url">${escapeHtml(maskUrl(test.host))}</div>
                 <div class="history-item-meta">
@@ -665,7 +753,7 @@ function displayHistory(history) {
                     </div>
                     <div class="history-metric">
                         <span class="history-metric-label">Success</span>
-                        <span class="history-metric-value">${test.total_requests > 0 ? ((test.success_count / test.total_requests) * 100).toFixed(1) : 0}%</span>
+                        <span class="history-metric-value">${successRate}%</span>
                     </div>
                     <div class="history-metric">
                         <span class="history-metric-label">RPS</span>
@@ -681,10 +769,10 @@ function displayHistory(history) {
                     </div>
                 </div>
                 <div class="history-item-actions">
-                    <button class="btn btn-secondary btn-sm" onclick="toggleAdvancedView(this, ${test.id}, event)">
+                    <button class="btn btn-secondary btn-sm" data-action="advanced" data-test-id="${test.id}">
                         Advanced View
                     </button>
-                    <button class="btn btn-secondary btn-sm" onclick="downloadReport(${test.id}, event)">
+                    <button class="btn btn-secondary btn-sm" data-action="download" data-test-id="${test.id}">
                         Download Report
                     </button>
                 </div>
@@ -693,22 +781,24 @@ function displayHistory(history) {
                 </div>
             </div>
         </div>
-    `,
-    )
-    .join("");
-}
-
-function toggleHistoryDetails(testId, event) {
-  // Prevent toggle if clicking on buttons
-  if (
-    event &&
-    (event.target.tagName === "BUTTON" || event.target.closest("button"))
-  ) {
-    return;
+    `;
   }
 
+  tempDiv.innerHTML = htmlParts.join("");
+  while (tempDiv.firstChild) {
+    fragment.appendChild(tempDiv.firstChild);
+  }
+
+  // Single DOM update
+  domCache.historyList.innerHTML = "";
+  domCache.historyList.appendChild(fragment);
+}
+
+function toggleHistoryDetails(testId) {
   const detailsDiv = document.getElementById(`details-${testId}`);
-  const historyItem = document.getElementById(`history-item-${testId}`);
+  const historyItem = document.querySelector(
+    `[data-test-id="${testId}"].history-item`,
+  );
   const expandIndicator = historyItem.querySelector(".expand-indicator");
 
   if (collapsedHistoryItems.has(testId)) {
@@ -726,11 +816,7 @@ function toggleHistoryDetails(testId, event) {
   }
 }
 
-async function toggleAdvancedView(button, testId, event) {
-  if (event) {
-    event.stopPropagation();
-  }
-
+async function toggleAdvancedView(testId) {
   const advancedView = document.getElementById(`advanced-view-${testId}`);
 
   if (expandedHistoryItems.has(testId)) {
@@ -908,11 +994,7 @@ function renderHistoryCharts(testId, timeSeries) {
   }
 }
 
-async function downloadReport(testId, event) {
-  if (event) {
-    event.stopPropagation();
-  }
-
+async function downloadReport(testId) {
   try {
     const response = await fetch(`/api/report/${testId}`);
     if (!response.ok) {
@@ -1008,16 +1090,48 @@ function updateChartColors() {
   }
 }
 
+// Event delegation for history items
+function setupEventDelegation() {
+  domCache.historyList.addEventListener("click", (e) => {
+    const historyItem = e.target.closest(".history-item");
+    if (!historyItem) return;
+
+    const testId = parseInt(historyItem.dataset.testId);
+
+    // Handle button clicks
+    if (e.target.tagName === "BUTTON") {
+      const action = e.target.dataset.action;
+      if (action === "advanced") {
+        toggleAdvancedView(testId);
+      } else if (action === "download") {
+        downloadReport(testId);
+      }
+      return;
+    }
+
+    // Handle item click (expand/collapse)
+    if (!e.target.closest(".history-item-actions")) {
+      toggleHistoryDetails(testId);
+    }
+  });
+}
+
 // Initialize charts and load history on page load
 window.addEventListener("DOMContentLoaded", () => {
+  // Initialize DOM cache first
+  initDOMCache();
+
   initTheme();
   initializeCharts();
+
+  // Setup event delegation
+  setupEventDelegation();
 
   // Load history and show CTA
   loadHistory().then(() => {
     // After loading, ensure CTA is shown if no test is running
     if (!currentTestId) {
-      document.getElementById("ctaSection").style.display = "block";
+      domCache.ctaSection.style.display = "block";
     }
   });
 
