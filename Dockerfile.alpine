@@ -1,15 +1,16 @@
-# Multi-stage Dockerfile for PipeOps Load Tester
-# Uses Debian-based images to avoid musl libc SQLite compatibility issues
+# Alternative Alpine-based Dockerfile for PipeOps Load Tester
+# This version uses Alpine with proper musl libc compatibility for SQLite
 
 # Stage 1: Build the Go application
-FROM golang:1.23-bookworm AS builder
+FROM golang:1.23-alpine AS builder
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y \
+# Install build dependencies for CGO and SQLite
+RUN apk add --no-cache \
     gcc \
-    libc6-dev \
-    libsqlite3-dev \
-    && rm -rf /var/lib/apt/lists/*
+    g++ \
+    musl-dev \
+    sqlite-dev \
+    git
 
 # Set working directory
 WORKDIR /app
@@ -23,23 +24,29 @@ RUN go mod download && go mod verify
 # Copy source code
 COPY . .
 
-# Build the application with CGO enabled
-RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 \
-    go build -ldflags="-s -w" -o load-tester .
+# Build with specific tags to handle musl libc compatibility
+# The key is using sqlite_omit_load_extension tag
+ENV CGO_ENABLED=1
+ENV GOOS=linux
+ENV GOARCH=amd64
+
+RUN go build \
+    -tags "sqlite_omit_load_extension" \
+    -ldflags="-s -w -linkmode external -extldflags '-static'" \
+    -o load-tester .
 
 # Stage 2: Create minimal runtime image
-FROM debian:bookworm-slim
+FROM alpine:latest
 
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y \
+# Install only essential runtime dependencies
+RUN apk --no-cache add \
     ca-certificates \
-    libsqlite3-0 \
-    wget \
-    && rm -rf /var/lib/apt/lists/*
+    tzdata \
+    && apk upgrade --no-cache
 
 # Create non-root user for security
-RUN groupadd -g 1000 pipeops && \
-    useradd -u 1000 -g pipeops -m -s /bin/bash pipeops
+RUN addgroup -g 1000 pipeops && \
+    adduser -D -u 1000 -G pipeops pipeops
 
 # Set working directory
 WORKDIR /home/pipeops/app

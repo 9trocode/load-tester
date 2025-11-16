@@ -63,14 +63,19 @@ The easiest way to deploy is using Railway:
 4. Select your repository
 5. Railway automatically detects `nixpacks.toml` and deploys with CGO enabled
 
-**See [DEPLOY_README.md](DEPLOY_README.md) for quick deployment instructions.**
-
 ### Docker
 
-**Quick Start:**
+**Quick Start (Debian-based - Recommended):**
 
 ```bash
 docker build -t pipeops-load-tester .
+docker run -d -p 8080:8080 pipeops-load-tester
+```
+
+**Alpine-based (Smaller Image):**
+
+```bash
+docker build -f Dockerfile.alpine -t pipeops-load-tester .
 docker run -d -p 8080:8080 pipeops-load-tester
 ```
 
@@ -80,7 +85,7 @@ docker run -d -p 8080:8080 pipeops-load-tester
 docker-compose up -d
 ```
 
-**Full deployment guide:** See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions on Railway, Docker, Render, Fly.io, and other platforms.
+**Note:** The default `Dockerfile` uses Debian to avoid SQLite musl libc compatibility issues. For smaller images, use `Dockerfile.alpine`. See [DOCKER_BUILD.md](DOCKER_BUILD.md) for details on the build fix.
 
 ## Usage
 
