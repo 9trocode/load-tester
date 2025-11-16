@@ -2,7 +2,27 @@
 
 A professional load testing and performance analysis tool built by PipeOps. Designed for comprehensive performance testing with real-time metrics, visual analytics, and detailed reporting.
 
-## ✨ Latest Updates (v1.0.0)
+## ✨ Latest Updates (v2.0.0)
+
+### UUID-Based Test URLs ⭐ NEW!
+
+Each test now has a **unique, clean URL** with UUID:
+
+```
+http://localhost:8080/test/550e8400-e29b-41d4-a716-446655440000
+```
+
+**Benefits:**
+
+- ✅ Refresh the page anytime - test persists!
+- ✅ Bookmark long-running tests
+- ✅ Share URL with team - everyone sees same live metrics
+- ✅ Clean, professional URLs (no query parameters)
+- ✅ Works across browser sessions
+
+See `UUID_IMPLEMENTATION.md` for complete details.
+
+## ✨ Previous Updates (v1.0.0)
 
 ### Frontend Enhancements
 
@@ -165,14 +185,15 @@ To view advanced metrics:
 
 ## API Endpoints
 
-- `POST /api/start` - Start a new load test
-- `GET /api/status/{test_id}` - Get test status
-- `GET /api/metrics/{test_id}` - Get real-time metrics with percentiles
-- `GET /api/timeseries/{test_id}` - Get time-series data for graphs
-- `GET /api/historical-metrics/{test_id}` - Get historical metrics with percentiles and time-series
+- `POST /api/start` - Start a new load test (returns UUID)
+- `GET /test/{uuid}` - View live test metrics in browser
+- `GET /api/status/{uuid}` - Get test status
+- `GET /api/metrics/{uuid}` - Get real-time metrics with percentiles
+- `GET /api/timeseries/{uuid}` - Get time-series data for graphs
+- `GET /api/historical-metrics/{uuid}` - Get historical metrics with percentiles and time-series
 - `GET /api/running` - Get all currently running tests (for auto-reconnection)
-- `POST /api/stop/{test_id}` - Stop a running test
-- `GET /api/report/{test_id}` - Generate and download PDF report
+- `POST /api/stop/{uuid}` - Stop a running test
+- `GET /api/report/{uuid}` - Generate and download PDF report
 - `GET /api/history` - Get recent test runs
 
 ## Database
@@ -218,42 +239,43 @@ Click any history item to expand and view:
 - Interactive time-series charts
 - Download PDF report option
 
-## Test Resumption (Never Lose Your Tests!)
+## Test Resumption with UUID URLs (Never Lose Your Tests!)
 
 **Problem:** Accidentally refreshed the page during a test? Lost access to live metrics?
 
-**Solution:** Automatic test reconnection!
+**Solution:** Each test gets a unique UUID-based URL!
 
 ### How It Works
 
-When you start a test, the URL updates to include the test ID:
+When you start a test, you get a clean URL with a UUID:
 
 ```
-http://localhost:8080/?test_id=123
+http://localhost:8080/test/550e8400-e29b-41d4-a716-446655440000
 ```
 
 This means you can:
 
-- ✅ **Refresh the page** - Automatically reconnects to the running test
-- ✅ **Close and reopen browser** - Finds your test and resumes monitoring
+- ✅ **Refresh the page** - URL persists, test reconnects automatically
+- ✅ **Close and reopen browser** - Bookmark the URL and return anytime
 - ✅ **Share the URL** - Colleagues can view the same live test metrics
-- ✅ **Bookmark long tests** - Return anytime during the test duration
+- ✅ **No query parameters** - Clean, professional URLs
 
 ### Features
 
-- **URL-based tracking** - Test ID in the URL for easy sharing and bookmarking
-- **localStorage backup** - Persists test ID even if URL is lost
+- **UUID in path** - Each test has a unique, permanent URL
+- **Path-based routing** - `/test/{uuid}` format for clean URLs
+- **localStorage backup** - Persists UUID even if you navigate away
 - **Automatic detection** - Checks server for any running tests on page load
 - **Visual feedback** - Shows "Reconnected to running test" banner with rotating icon
 - **Multi-user viewing** - Multiple people can monitor the same test simultaneously
-- **Smart cleanup** - Automatically removes tracking when test completes
+- **Smart cleanup** - Automatically returns to home when test completes
 
 ### Priority Order
 
 The system reconnects in this order:
 
-1. URL parameter (`?test_id=123`) - Highest priority
-2. localStorage (`currentTestId`) - If no URL parameter
+1. URL path (`/test/{uuid}`) - Extracted from browser address bar
+2. localStorage (`currentTestUUID`) - Fallback if URL is lost
 3. Server query (`/api/running`) - Finds any running tests
 4. Show CTA - If no tests found
 
@@ -262,17 +284,22 @@ The system reconnects in this order:
 ```bash
 # Start a test
 curl -X POST http://localhost:8080/api/start \
+  -H "Content-Type: application/json" \
   -d '{"host": "https://example.com", "users": 10, "duration": 60}'
 
-# Response: {"test_id": 123, "status": "started"}
+# Response: {
+#   "test_id": 1,
+#   "test_uuid": "550e8400-e29b-41d4-a716-446655440000",
+#   "status": "started"
+# }
 
 # Share this URL with your team:
-# http://localhost:8080/?test_id=123
+# http://localhost:8080/test/550e8400-e29b-41d4-a716-446655440000
 
 # Everyone can view live metrics in real-time!
 ```
 
-See `TEST_RESUMPTION_FEATURE.md` for complete documentation.
+See `UUID_IMPLEMENTATION.md` and `TEST_RESUMPTION_FEATURE.md` for complete documentation.
 
 ## Understanding Metrics
 
@@ -384,6 +411,7 @@ See `QUICK_START.md` for detailed instructions including:
 
 For complete implementation information, see:
 
+- `UUID_IMPLEMENTATION.md` - UUID-based URL implementation (v2.0.0)
 - `UPDATE_SUMMARY.md` - Latest features and changes
 - `TEST_RESUMPTION_FEATURE.md` - Test resumption documentation
 - `GO_CODE_REVIEW.md` - Code quality review

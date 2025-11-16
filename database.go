@@ -9,6 +9,7 @@ import (
 
 type TestRun struct {
 	ID            int64      `json:"id"`
+	UUID          string     `json:"uuid"`
 	Host          string     `json:"host"`
 	TotalUsers    int        `json:"total_users"`
 	RampUpSec     int        `json:"ramp_up_sec"`
@@ -56,6 +57,7 @@ func InitDB() (*sql.DB, error) {
 	createTableSQL := `
 	CREATE TABLE IF NOT EXISTS test_runs (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		uuid TEXT NOT NULL UNIQUE,
 		host TEXT NOT NULL,
 		total_users INTEGER NOT NULL,
 		ramp_up_sec INTEGER NOT NULL,
@@ -83,6 +85,7 @@ func InitDB() (*sql.DB, error) {
 	);
 
 	CREATE INDEX IF NOT EXISTS idx_test_runs_started_at ON test_runs(started_at DESC);
+	CREATE INDEX IF NOT EXISTS idx_test_runs_uuid ON test_runs(uuid);
 	CREATE INDEX IF NOT EXISTS idx_request_metrics_test_run ON request_metrics(test_run_id);
 	`
 
@@ -96,9 +99,9 @@ func InitDB() (*sql.DB, error) {
 
 func SaveTestRun(db *sql.DB, testRun *TestRun) (int64, error) {
 	result, err := db.Exec(
-		`INSERT INTO test_runs (host, total_users, ramp_up_sec, duration, status, started_at)
-		 VALUES (?, ?, ?, ?, ?, ?)`,
-		testRun.Host, testRun.TotalUsers, testRun.RampUpSec, testRun.Duration, testRun.Status, testRun.StartedAt,
+		`INSERT INTO test_runs (uuid, host, total_users, ramp_up_sec, duration, status, started_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		testRun.UUID, testRun.Host, testRun.TotalUsers, testRun.RampUpSec, testRun.Duration, testRun.Status, testRun.StartedAt,
 	)
 	if err != nil {
 		return 0, err
@@ -123,12 +126,38 @@ func GetTestRun(db *sql.DB, id int64) (*TestRun, error) {
 	var completedAt sql.NullTime
 
 	err := db.QueryRow(
-		`SELECT id, host, total_users, ramp_up_sec, duration, status, started_at, completed_at,
+		`SELECT id, uuid, host, total_users, ramp_up_sec, duration, status, started_at, completed_at,
 		 total_requests, success_count, error_count, avg_latency, min_latency, max_latency, rps
 		 FROM test_runs WHERE id = ?`,
 		id,
 	).Scan(
-		&testRun.ID, &testRun.Host, &testRun.TotalUsers, &testRun.RampUpSec, &testRun.Duration,
+		&testRun.ID, &testRun.UUID, &testRun.Host, &testRun.TotalUsers, &testRun.RampUpSec, &testRun.Duration,
+		&testRun.Status, &testRun.StartedAt, &completedAt,
+		&testRun.TotalRequests, &testRun.SuccessCount, &testRun.ErrorCount,
+		&testRun.AvgLatency, &testRun.MinLatency, &testRun.MaxLatency, &testRun.RPS,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if completedAt.Valid {
+		testRun.CompletedAt = &completedAt.Time
+	}
+
+	return &testRun, nil
+}
+
+func GetTestRunByUUID(db *sql.DB, uuid string) (*TestRun, error) {
+	var testRun TestRun
+	var completedAt sql.NullTime
+
+	err := db.QueryRow(
+		`SELECT id, uuid, host, total_users, ramp_up_sec, duration, status, started_at, completed_at,
+		 total_requests, success_count, error_count, avg_latency, min_latency, max_latency, rps
+		 FROM test_runs WHERE uuid = ?`,
+		uuid,
+	).Scan(
+		&testRun.ID, &testRun.UUID, &testRun.Host, &testRun.TotalUsers, &testRun.RampUpSec, &testRun.Duration,
 		&testRun.Status, &testRun.StartedAt, &completedAt,
 		&testRun.TotalRequests, &testRun.SuccessCount, &testRun.ErrorCount,
 		&testRun.AvgLatency, &testRun.MinLatency, &testRun.MaxLatency, &testRun.RPS,
@@ -146,7 +175,7 @@ func GetTestRun(db *sql.DB, id int64) (*TestRun, error) {
 
 func GetTopTestRuns(db *sql.DB, limit int) ([]*TestRun, error) {
 	rows, err := db.Query(
-		`SELECT id, host, total_users, ramp_up_sec, duration, status, started_at, completed_at,
+		`SELECT id, uuid, host, total_users, ramp_up_sec, duration, status, started_at, completed_at,
 		 total_requests, success_count, error_count, avg_latency, min_latency, max_latency, rps
 		 FROM test_runs
 		 WHERE status = 'completed'
@@ -165,7 +194,7 @@ func GetTopTestRuns(db *sql.DB, limit int) ([]*TestRun, error) {
 		var completedAt sql.NullTime
 
 		err := rows.Scan(
-			&testRun.ID, &testRun.Host, &testRun.TotalUsers, &testRun.RampUpSec, &testRun.Duration,
+			&testRun.ID, &testRun.UUID, &testRun.Host, &testRun.TotalUsers, &testRun.RampUpSec, &testRun.Duration,
 			&testRun.Status, &testRun.StartedAt, &completedAt,
 			&testRun.TotalRequests, &testRun.SuccessCount, &testRun.ErrorCount,
 			&testRun.AvgLatency, &testRun.MinLatency, &testRun.MaxLatency, &testRun.RPS,

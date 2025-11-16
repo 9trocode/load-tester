@@ -48,6 +48,7 @@ func main() {
 
 	// Setup routes with request ID middleware
 	http.HandleFunc("/", requestIDMiddleware(serveIndex))
+	http.HandleFunc("/test/", requestIDMiddleware(serveIndex)) // Serve index.html for /test/{uuid}
 	http.HandleFunc("/api/start", requestIDMiddleware(testManager.HandleStartTest))
 	http.HandleFunc("/api/status/", requestIDMiddleware(testManager.HandleGetStatus))
 	http.HandleFunc("/api/metrics/", requestIDMiddleware(testManager.HandleGetMetrics))

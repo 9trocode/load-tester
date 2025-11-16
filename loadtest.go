@@ -12,11 +12,12 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // parseJSON is a helper function to parse JSON from request body
@@ -27,7 +28,7 @@ func parseJSON(r *http.Request, v interface{}) error {
 
 type TestManager struct {
 	db          *sql.DB
-	activeTests map[int64]*TestContext
+	activeTests map[string]*TestContext // UUID -> TestContext
 	mu          sync.RWMutex
 	// Rate limiting: track last test start time per IP (simple approach)
 	// For production, consider using a proper rate limiter library
@@ -74,7 +75,7 @@ type TimeSeriesPoint struct {
 func NewTestManager(db *sql.DB) *TestManager {
 	tm := &TestManager{
 		db:             db,
-		activeTests:    make(map[int64]*TestContext),
+		activeTests:    make(map[string]*TestContext),
 		lastTestStarts: make(map[string]time.Time),
 	}
 
@@ -109,8 +110,8 @@ func (tm *TestManager) Shutdown() {
 
 	slog.Info("Shutting down active tests", "count", len(tm.activeTests))
 
-	for testID, testCtx := range tm.activeTests {
-		slog.Info("Cancelling test", "test_id", testID)
+	for testUUID, testCtx := range tm.activeTests {
+		slog.Info("Cancelling test", "test_uuid", testUUID)
 		testCtx.Cancel()
 	}
 
@@ -211,8 +212,12 @@ func (tm *TestManager) HandleStartTest(w http.ResponseWriter, r *http.Request) {
 	tm.lastTestStarts[clientIP] = now
 	tm.rateLimitMu.Unlock()
 
+	// Generate UUID for this test
+	testUUID := uuid.New().String()
+
 	// Create test run
 	testRun := &TestRun{
+		UUID:       testUUID,
 		Host:       req.Host,
 		TotalUsers: req.Users,
 		RampUpSec:  req.RampUpSec,
@@ -251,7 +256,7 @@ func (tm *TestManager) HandleStartTest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tm.mu.Lock()
-	tm.activeTests[testRunID] = testCtx
+	tm.activeTests[testUUID] = testCtx
 	tm.mu.Unlock()
 
 	// Start load test in goroutine
@@ -259,8 +264,9 @@ func (tm *TestManager) HandleStartTest(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"test_id": testRunID,
-		"status":  "started",
+		"test_id":   testRunID,
+		"test_uuid": testUUID,
+		"status":    "started",
 	})
 }
 
@@ -271,7 +277,7 @@ func (tm *TestManager) runLoadTest(ctx context.Context, testCtx *TestContext) {
 
 		testCtx.IsRunning.Store(false)
 		tm.mu.Lock()
-		delete(tm.activeTests, testCtx.TestRun.ID)
+		delete(tm.activeTests, testCtx.TestRun.UUID)
 		tm.mu.Unlock()
 	}()
 
@@ -617,26 +623,44 @@ func (tm *TestManager) calculateAndSaveMetrics(testCtx *TestContext) {
 }
 
 func (tm *TestManager) HandleGetStatus(w http.ResponseWriter, r *http.Request) {
-	testIDStr := r.URL.Path[len("/api/status/"):]
-	testID, err := strconv.ParseInt(testIDStr, 10, 64)
-	if err != nil {
-		http.Error(w, "Invalid test ID", http.StatusBadRequest)
+	testUUID := r.URL.Path[len("/api/status/"):]
+
+	tm.mu.RLock()
+	testCtx, exists := tm.activeTests[testUUID]
+	tm.mu.RUnlock()
+
+	if exists {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"is_running": testCtx.IsRunning.Load(),
+			"test_run":   testCtx.TestRun,
+		})
 		return
 	}
 
+	// If not in active tests, check database
+	testRun, err := GetTestRunByUUID(tm.db, testUUID)
+	if err != nil {
+		http.Error(w, "Test not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"is_running": false,
+		"test_run":   testRun,
+	})
+}
+
+func (tm *TestManager) HandleStopTest(w http.ResponseWriter, r *http.Request) {
+	testUUID := r.URL.Path[len("/api/stop/"):]
+
 	tm.mu.RLock()
-	testCtx, exists := tm.activeTests[testID]
+	testCtx, exists := tm.activeTests[testUUID]
 	tm.mu.RUnlock()
 
 	if !exists {
-		// Try to get from database
-		testRun, err := GetTestRun(tm.db, testID)
-		if err != nil {
-			http.Error(w, "Test not found", http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(testRun)
+		http.Error(w, "Test not found or already stopped", http.StatusNotFound)
 		return
 	}
 
@@ -648,19 +672,14 @@ func (tm *TestManager) HandleGetStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func (tm *TestManager) HandleGetMetrics(w http.ResponseWriter, r *http.Request) {
-	testIDStr := r.URL.Path[len("/api/metrics/"):]
-	testID, err := strconv.ParseInt(testIDStr, 10, 64)
-	if err != nil {
-		http.Error(w, "Invalid test ID", http.StatusBadRequest)
-		return
-	}
+	testUUID := r.URL.Path[len("/api/metrics/"):]
 
 	tm.mu.RLock()
-	testCtx, exists := tm.activeTests[testID]
+	testCtx, exists := tm.activeTests[testUUID]
 	tm.mu.RUnlock()
 
 	if !exists {
-		testRun, err := GetTestRun(tm.db, testID)
+		testRun, err := GetTestRunByUUID(tm.db, testUUID)
 		if err != nil {
 			http.Error(w, "Test not found", http.StatusNotFound)
 			return
@@ -767,9 +786,10 @@ func (tm *TestManager) HandleGetRunningTests(w http.ResponseWriter, r *http.Requ
 	defer tm.mu.RUnlock()
 
 	runningTests := make([]map[string]interface{}, 0, len(tm.activeTests))
-	for testID, testCtx := range tm.activeTests {
+	for testUUID, testCtx := range tm.activeTests {
 		runningTests = append(runningTests, map[string]interface{}{
-			"test_id":     testID,
+			"test_id":     testCtx.TestRun.ID,
+			"test_uuid":   testUUID,
 			"host":        testCtx.TestRun.Host,
 			"total_users": testCtx.TestRun.TotalUsers,
 			"duration":    testCtx.TestRun.Duration,
@@ -785,22 +805,16 @@ func (tm *TestManager) HandleGetRunningTests(w http.ResponseWriter, r *http.Requ
 }
 
 func (tm *TestManager) HandleGetHistoricalMetrics(w http.ResponseWriter, r *http.Request) {
-	testIDStr := r.URL.Path[len("/api/historical-metrics/"):]
-	testID, err := strconv.ParseInt(testIDStr, 10, 64)
-	if err != nil {
-		http.Error(w, "Invalid test ID", http.StatusBadRequest)
-		return
-	}
+	testUUID := r.URL.Path[len("/api/historical-metrics/"):]
 
-	// Get test run from database
-	testRun, err := GetTestRun(tm.db, testID)
+	testRun, err := GetTestRunByUUID(tm.db, testUUID)
 	if err != nil {
 		http.Error(w, "Test not found", http.StatusNotFound)
 		return
 	}
 
 	// Get request metrics for this test
-	metrics, err := GetRequestMetrics(tm.db, testID)
+	metrics, err := GetRequestMetrics(tm.db, testRun.ID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to get metrics: %v", err), http.StatusInternalServerError)
 		return
@@ -948,15 +962,10 @@ func buildTimeSeriesPoints(metrics []*RequestMetric, startTime time.Time) []Time
 }
 
 func (tm *TestManager) HandleGetTimeSeries(w http.ResponseWriter, r *http.Request) {
-	testIDStr := r.URL.Path[len("/api/timeseries/"):]
-	testID, err := strconv.ParseInt(testIDStr, 10, 64)
-	if err != nil {
-		http.Error(w, "Invalid test ID", http.StatusBadRequest)
-		return
-	}
+	testUUID := r.URL.Path[len("/api/timeseries/"):]
 
 	tm.mu.RLock()
-	testCtx, exists := tm.activeTests[testID]
+	testCtx, exists := tm.activeTests[testUUID]
 	tm.mu.RUnlock()
 
 	if !exists {
@@ -974,15 +983,9 @@ func (tm *TestManager) HandleGetTimeSeries(w http.ResponseWriter, r *http.Reques
 }
 
 func (tm *TestManager) HandleGenerateReport(w http.ResponseWriter, r *http.Request) {
-	testIDStr := r.URL.Path[len("/api/report/"):]
-	testID, err := strconv.ParseInt(testIDStr, 10, 64)
-	if err != nil {
-		http.Error(w, "Invalid test ID", http.StatusBadRequest)
-		return
-	}
+	testUUID := r.URL.Path[len("/api/report/"):]
 
-	// Get test run
-	testRun, err := GetTestRun(tm.db, testID)
+	testRun, err := GetTestRunByUUID(tm.db, testUUID)
 	if err != nil {
 		http.Error(w, "Test not found", http.StatusNotFound)
 		return
@@ -991,7 +994,7 @@ func (tm *TestManager) HandleGenerateReport(w http.ResponseWriter, r *http.Reque
 	// Get time series if test is active
 	var timeSeries []TimeSeriesPoint
 	tm.mu.RLock()
-	testCtx, exists := tm.activeTests[testID]
+	testCtx, exists := tm.activeTests[testUUID]
 	tm.mu.RUnlock()
 
 	if exists {
@@ -1000,11 +1003,11 @@ func (tm *TestManager) HandleGenerateReport(w http.ResponseWriter, r *http.Reque
 		copy(timeSeries, testCtx.Metrics.TimeSeries)
 		testCtx.Metrics.mu.RUnlock()
 	} else {
-		historicalMetrics, err := GetRequestMetrics(tm.db, testID)
+		historicalMetrics, err := GetRequestMetrics(tm.db, testRun.ID)
 		if err == nil {
 			timeSeries = buildTimeSeriesPoints(historicalMetrics, testRun.StartedAt)
 		} else {
-			log.Printf("failed to load historical time series for test %d: %v", testID, err)
+			log.Printf("failed to load historical time series for test %s: %v", testUUID, err)
 		}
 	}
 
@@ -1016,37 +1019,8 @@ func (tm *TestManager) HandleGenerateReport(w http.ResponseWriter, r *http.Reque
 	}
 
 	w.Header().Set("Content-Type", "application/pdf")
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=loadtest_report_%d.pdf", testID))
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=loadtest_report_%s.pdf", testUUID))
 	w.Write(pdfBytes)
-}
-
-func (tm *TestManager) HandleStopTest(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	testIDStr := r.URL.Path[len("/api/stop/"):]
-	testID, err := strconv.ParseInt(testIDStr, 10, 64)
-	if err != nil {
-		http.Error(w, "Invalid test ID", http.StatusBadRequest)
-		return
-	}
-
-	tm.mu.Lock()
-	testCtx, exists := tm.activeTests[testID]
-	tm.mu.Unlock()
-
-	if !exists {
-		http.Error(w, "Test not found or already stopped", http.StatusNotFound)
-		return
-	}
-
-	testCtx.Cancel()
-	tm.calculateAndSaveMetrics(testCtx)
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "stopped"})
 }
 
 func (mc *MetricsCollector) Record(latency float64, success bool, statusCode int) {

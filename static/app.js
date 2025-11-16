@@ -12,66 +12,65 @@ let testUsers = null;
 let collapsedHistoryItems = new Set(); // Track collapsed state (all start collapsed)
 
 // URL and localStorage helpers
-function getTestIdFromURL() {
-  const urlParams = new URLSearchParams(window.location.search);
-  return urlParams.get("test_id");
+function getTestUUIDFromURL() {
+  const path = window.location.pathname;
+  // Check if path is /test/{uuid}
+  const match = path.match(/^\/test\/([a-f0-9-]+)$/i);
+  return match ? match[1] : null;
 }
 
-function setTestIdInURL(testId) {
-  const url = new URL(window.location);
-  url.searchParams.set("test_id", testId);
+function setTestUUIDInURL(testUUID) {
+  const url = `/test/${testUUID}`;
   window.history.pushState({}, "", url);
 }
 
-function removeTestIdFromURL() {
-  const url = new URL(window.location);
-  url.searchParams.delete("test_id");
-  window.history.pushState({}, "", url);
+function removeTestUUIDFromURL() {
+  window.history.pushState({}, "", "/");
 }
 
-function saveTestIdToStorage(testId) {
-  if (testId) {
-    localStorage.setItem("currentTestId", testId);
+function saveTestUUIDToStorage(testUUID) {
+  if (testUUID) {
+    localStorage.setItem("currentTestUUID", testUUID);
   } else {
-    localStorage.removeItem("currentTestId");
+    localStorage.removeItem("currentTestUUID");
   }
 }
 
-function getTestIdFromStorage() {
-  return localStorage.getItem("currentTestId");
+function getTestUUIDFromStorage() {
+  return localStorage.getItem("currentTestUUID");
 }
 
 // Check for running tests and resume if found
 async function checkAndResumeTest() {
   console.log("[Resume] Starting test resumption check...");
 
-  // Priority 1: URL parameter
-  let testId = getTestIdFromURL();
-  console.log("[Resume] URL test_id:", testId);
+  // Priority 1: URL path (/test/{uuid})
+  let testUUID = getTestUUIDFromURL();
+  console.log("[Resume] URL test_uuid:", testUUID);
 
-  if (testId) {
-    console.log("[Resume] Found test ID in URL:", testId);
-    await resumeTest(parseInt(testId));
+  if (testUUID) {
+    console.log("[Resume] Found test UUID in URL:", testUUID);
+    await resumeTest(testUUID);
     return true;
   }
 
   // Priority 2: localStorage
-  testId = getTestIdFromStorage();
-  console.log("[Resume] localStorage test_id:", testId);
+  testUUID = getTestUUIDFromStorage();
+  console.log("[Resume] localStorage test_uuid:", testUUID);
 
-  if (testId) {
-    console.log("[Resume] Found test ID in localStorage:", testId);
+  if (testUUID) {
+    console.log("[Resume] Found test UUID in localStorage:", testUUID);
     // Verify it's still running
-    const isRunning = await checkIfTestRunning(parseInt(testId));
+    const isRunning = await checkIfTestRunning(testUUID);
     console.log("[Resume] Test still running?", isRunning);
 
     if (isRunning) {
-      await resumeTest(parseInt(testId));
+      await resumeTest(testUUID);
       return true;
     } else {
       // Clean up if not running
       console.log("[Resume] Cleaning up localStorage (test not running)");
-      saveTestIdToStorage(null);
+      saveTestUUIDToStorage(null);
     }
   }
 
@@ -85,8 +84,8 @@ async function checkAndResumeTest() {
     if (data.running_tests && data.running_tests.length > 0) {
       // Resume the most recent running test
       const mostRecent = data.running_tests[0];
-      console.log("[Resume] Found running test:", mostRecent.test_id);
-      await resumeTest(mostRecent.test_id);
+      console.log("[Resume] Found running test:", mostRecent.test_uuid);
+      await resumeTest(mostRecent.test_uuid);
       return true;
     }
   } catch (error) {
@@ -98,9 +97,9 @@ async function checkAndResumeTest() {
 }
 
 // Check if a specific test is still running
-async function checkIfTestRunning(testId) {
+async function checkIfTestRunning(testUUID) {
   try {
-    const response = await fetch(`/api/status/${testId}`);
+    const response = await fetch(`/api/status/${testUUID}`);
     const data = await response.json();
     return data.is_running === true;
   } catch (error) {
@@ -110,11 +109,11 @@ async function checkIfTestRunning(testId) {
 }
 
 // Resume monitoring an existing test
-async function resumeTest(testId) {
-  console.log("[Resume] Attempting to resume test:", testId);
+async function resumeTest(testUUID) {
+  console.log("[Resume] Attempting to resume test:", testUUID);
 
   try {
-    const response = await fetch(`/api/status/${testId}`);
+    const response = await fetch(`/api/status/${testUUID}`);
     console.log("[Resume] Status response:", response.ok, response.status);
 
     if (!response.ok) {
@@ -125,14 +124,14 @@ async function resumeTest(testId) {
     console.log("[Resume] Status data:", data);
 
     if (!data.is_running) {
-      console.log("[Resume] Test", testId, "is no longer running");
-      saveTestIdToStorage(null);
-      removeTestIdFromURL();
+      console.log("[Resume] Test", testUUID, "is no longer running");
+      saveTestUUIDToStorage(null);
+      removeTestUUIDFromURL();
       return;
     }
 
     // Set up the test
-    currentTestId = testId;
+    currentTestId = testUUID;
     const testRun = data.test_run;
 
     testStartTime = new Date(testRun.started_at).getTime();
@@ -147,8 +146,8 @@ async function resumeTest(testId) {
     });
 
     // Update URL and storage
-    setTestIdInURL(testId);
-    saveTestIdToStorage(testId);
+    setTestUUIDInURL(testUUID);
+    saveTestUUIDToStorage(testUUID);
 
     // Show metrics section
     domCache.ctaSection.style.display = "none";
@@ -181,11 +180,11 @@ async function resumeTest(testId) {
     startMetricsPolling();
     startTimeSeriesPolling();
 
-    console.log("[Resume] ✅ Successfully resumed test", testId);
+    console.log("[Resume] ✅ Successfully resumed test", testUUID);
   } catch (error) {
     console.error("[Resume] ❌ Error resuming test:", error);
-    saveTestIdToStorage(null);
-    removeTestIdFromURL();
+    saveTestUUIDToStorage(null);
+    removeTestUUIDFromURL();
   }
 }
 
@@ -620,11 +619,11 @@ document.getElementById("testForm").addEventListener("submit", async (e) => {
     }
 
     const data = await response.json();
-    currentTestId = data.test_id;
+    currentTestId = data.test_uuid; // Use UUID instead of numeric ID
 
-    // Save test ID to URL and localStorage
-    setTestIdInURL(currentTestId);
-    saveTestIdToStorage(currentTestId);
+    // Save test UUID to URL and localStorage
+    setTestUUIDInURL(currentTestId);
+    saveTestUUIDToStorage(currentTestId);
 
     // Store test configuration
     testStartTime = Date.now();
@@ -703,8 +702,8 @@ function startMetricsPolling() {
         testDurationSeconds = null;
         testUsers = null;
         // Clean up URL and storage when test completes
-        removeTestIdFromURL();
-        saveTestIdToStorage(null);
+        removeTestUUIDFromURL();
+        saveTestUUIDToStorage(null);
         loadHistory();
       }
     } catch (error) {
