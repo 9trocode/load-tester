@@ -738,8 +738,30 @@ func (tm *TestManager) HandleGetMetrics(w http.ResponseWriter, r *http.Request) 
 			http.Error(w, "Test not found", http.StatusNotFound)
 			return
 		}
+		// Return completed test metrics in the same format as live metrics
+		// Calculate error rate
+		errorRate := 0.0
+		if testRun.TotalRequests > 0 {
+			errorRate = (float64(testRun.ErrorCount) / float64(testRun.TotalRequests)) * 100
+		}
+
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(testRun)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"total_requests": testRun.TotalRequests,
+			"success_count":  testRun.SuccessCount,
+			"error_count":    testRun.ErrorCount,
+			"avg_latency":    testRun.AvgLatency,
+			"min_latency":    testRun.MinLatency,
+			"max_latency":    testRun.MaxLatency,
+			"p50_latency":    0.0, // Not stored for completed tests
+			"p95_latency":    0.0, // Not stored for completed tests
+			"p99_latency":    0.0, // Not stored for completed tests
+			"error_rate":     errorRate,
+			"avg_rps":        testRun.RPS,
+			"rps":            testRun.RPS,
+			"duration":       float64(testRun.Duration),
+			"is_running":     false,
+		})
 		return
 	}
 
