@@ -28,6 +28,11 @@ function removeTestUUIDFromURL() {
   window.history.pushState({}, "", "/");
 }
 
+// Helper to check if we're on a test-specific page
+function isOnTestPage() {
+  return getTestUUIDFromURL() !== null;
+}
+
 function saveTestUUIDToStorage(testUUID) {
   if (testUUID) {
     localStorage.setItem("currentTestUUID", testUUID);
@@ -152,7 +157,7 @@ async function resumeTest(testUUID) {
     // Show metrics section
     domCache.ctaSection.style.display = "none";
     domCache.metricsSection.style.display = "block";
-    domCache.historySection.style.display = "block";
+    domCache.historySection.style.display = "none"; // Hide history on test page
 
     // Show resumed banner
     const resumedBanner = document.getElementById("resumedBanner");
@@ -644,7 +649,7 @@ document.getElementById("testForm").addEventListener("submit", async (e) => {
     closeTestModal();
     domCache.ctaSection.style.display = "none";
     domCache.metricsSection.style.display = "block";
-    domCache.historySection.style.display = "none";
+    domCache.historySection.style.display = "none"; // Always hide history on test page
 
     // Reset charts
     resetCharts();
@@ -696,7 +701,10 @@ function startMetricsPolling() {
         stopTimeSeriesPolling();
         domCache.ctaSection.style.display = "block";
         domCache.metricsSection.style.display = "none";
-        domCache.historySection.style.display = "block";
+        // Only show history if not on a test-specific page
+        domCache.historySection.style.display = isOnTestPage()
+          ? "none"
+          : "block";
         currentTestId = null;
         testStartTime = null;
         testDurationSeconds = null;
@@ -872,7 +880,8 @@ async function loadHistory() {
     // On error, show CTA if no test is running
     if (!currentTestId) {
       domCache.ctaSection.style.display = "block";
-      domCache.historySection.style.display = "none";
+      // Only show history if not on a test-specific page
+      domCache.historySection.style.display = isOnTestPage() ? "none" : "block";
     } else {
       domCache.historyList.innerHTML =
         '<div class="empty-state">Error loading history</div>';
@@ -885,7 +894,8 @@ function displayHistory(history) {
     // Show CTA if no test is running, otherwise show empty state
     if (!currentTestId) {
       domCache.ctaSection.style.display = "block";
-      domCache.historySection.style.display = "none";
+      // Only show history if not on a test-specific page
+      domCache.historySection.style.display = isOnTestPage() ? "none" : "block";
     } else {
       domCache.historyList.innerHTML =
         '<div class="empty-state">No test history yet. Start your first test to see results here.</div>';
@@ -896,7 +906,8 @@ function displayHistory(history) {
   // Show CTA if there's 1 or more history items and no test is running
   if (!currentTestId) {
     domCache.ctaSection.style.display = "block";
-    domCache.historySection.style.display = "block";
+    // Only show history if not on a test-specific page
+    domCache.historySection.style.display = isOnTestPage() ? "none" : "block";
   }
 
   // Use DocumentFragment for better performance
