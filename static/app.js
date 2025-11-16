@@ -877,28 +877,21 @@ async function loadHistory() {
     displayHistory(history);
   } catch (error) {
     console.error("Error loading history:", error);
-    // On error, show CTA if no test is running
+    // Hide history section on error
+    domCache.historySection.style.display = "none";
+    // Show CTA if no test is running
     if (!currentTestId) {
       domCache.ctaSection.style.display = "block";
-      // Only show history if not on a test-specific page
-      domCache.historySection.style.display = isOnTestPage() ? "none" : "block";
-    } else {
-      domCache.historyList.innerHTML =
-        '<div class="empty-state">Error loading history</div>';
     }
   }
 }
 
 function displayHistory(history) {
   if (history.length === 0) {
-    // Show CTA if no test is running, otherwise show empty state
+    // Hide history section completely when there are no tests at all
+    domCache.historySection.style.display = "none";
     if (!currentTestId) {
       domCache.ctaSection.style.display = "block";
-      // Only show history if not on a test-specific page
-      domCache.historySection.style.display = isOnTestPage() ? "none" : "block";
-    } else {
-      domCache.historyList.innerHTML =
-        '<div class="empty-state">No test history yet. Start your first test to see results here.</div>';
     }
     return;
   }
