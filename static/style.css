@@ -351,6 +351,63 @@ select.input {
     }
 }
 
+/* Resumed Test Banner */
+.resumed-test-banner {
+    background: linear-gradient(
+        135deg,
+        rgba(59, 130, 246, 0.1),
+        rgba(16, 185, 129, 0.1)
+    );
+    border: 1px solid var(--pipeops-primary);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    animation: slideDown 0.3s ease-out;
+}
+
+[data-theme="dark"] .resumed-test-banner {
+    background: linear-gradient(
+        135deg,
+        rgba(59, 130, 246, 0.15),
+        rgba(16, 185, 129, 0.15)
+    );
+}
+
+.banner-icon {
+    font-size: 1.25rem;
+    color: var(--pipeops-primary);
+    animation: rotate 2s linear infinite;
+}
+
+.banner-text {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--pipeops-text);
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes rotate {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 /* Live Overview Card */
 .live-overview-card {
     background: var(--pipeops-bg);

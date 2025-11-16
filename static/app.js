@@ -11,6 +11,157 @@ let testDurationSeconds = null;
 let testUsers = null;
 let collapsedHistoryItems = new Set(); // Track collapsed state (all start collapsed)
 
+// URL and localStorage helpers
+function getTestIdFromURL() {
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.get("test_id");
+}
+
+function setTestIdInURL(testId) {
+  const url = new URL(window.location);
+  url.searchParams.set("test_id", testId);
+  window.history.pushState({}, "", url);
+}
+
+function removeTestIdFromURL() {
+  const url = new URL(window.location);
+  url.searchParams.delete("test_id");
+  window.history.pushState({}, "", url);
+}
+
+function saveTestIdToStorage(testId) {
+  if (testId) {
+    localStorage.setItem("currentTestId", testId);
+  } else {
+    localStorage.removeItem("currentTestId");
+  }
+}
+
+function getTestIdFromStorage() {
+  return localStorage.getItem("currentTestId");
+}
+
+// Check for running tests and resume if found
+async function checkAndResumeTest() {
+  // Priority 1: URL parameter
+  let testId = getTestIdFromURL();
+
+  if (testId) {
+    console.log("Found test ID in URL:", testId);
+    await resumeTest(parseInt(testId));
+    return true;
+  }
+
+  // Priority 2: localStorage
+  testId = getTestIdFromStorage();
+  if (testId) {
+    console.log("Found test ID in localStorage:", testId);
+    // Verify it's still running
+    const isRunning = await checkIfTestRunning(parseInt(testId));
+    if (isRunning) {
+      await resumeTest(parseInt(testId));
+      return true;
+    } else {
+      // Clean up if not running
+      saveTestIdToStorage(null);
+    }
+  }
+
+  // Priority 3: Check for any running tests
+  try {
+    const response = await fetch("/api/running");
+    const data = await response.json();
+
+    if (data.running_tests && data.running_tests.length > 0) {
+      // Resume the most recent running test
+      const mostRecent = data.running_tests[0];
+      console.log("Found running test:", mostRecent.test_id);
+      await resumeTest(mostRecent.test_id);
+      return true;
+    }
+  } catch (error) {
+    console.error("Error checking for running tests:", error);
+  }
+
+  return false;
+}
+
+// Check if a specific test is still running
+async function checkIfTestRunning(testId) {
+  try {
+    const response = await fetch(`/api/status/${testId}`);
+    const data = await response.json();
+    return data.is_running === true;
+  } catch (error) {
+    console.error("Error checking test status:", error);
+    return false;
+  }
+}
+
+// Resume monitoring an existing test
+async function resumeTest(testId) {
+  try {
+    const response = await fetch(`/api/status/${testId}`);
+    if (!response.ok) {
+      throw new Error("Test not found");
+    }
+
+    const data = await response.json();
+
+    if (!data.is_running) {
+      console.log("Test", testId, "is no longer running");
+      saveTestIdToStorage(null);
+      removeTestIdFromURL();
+      return;
+    }
+
+    // Set up the test
+    currentTestId = testId;
+    const testRun = data.test_run;
+
+    testStartTime = new Date(testRun.started_at).getTime();
+    testDurationSeconds = testRun.duration;
+    testUsers = testRun.total_users;
+
+    // Update URL and storage
+    setTestIdInURL(testId);
+    saveTestIdToStorage(testId);
+
+    // Show metrics section
+    domCache.ctaSection.style.display = "none";
+    domCache.metricsSection.style.display = "block";
+    domCache.historySection.style.display = "block";
+
+    // Show resumed banner
+    const resumedBanner = document.getElementById("resumedBanner");
+    if (resumedBanner) {
+      resumedBanner.style.display = "flex";
+      // Auto-hide after 5 seconds
+      setTimeout(() => {
+        resumedBanner.style.display = "none";
+      }, 5000);
+    }
+
+    // Set the host URL
+    domCache.currentHostUrl.textContent = maskUrl(testRun.host);
+    domCache.virtualUsers.textContent = testRun.total_users;
+    domCache.testDuration.textContent = formatTime(testRun.duration);
+
+    // Reset charts
+    resetCharts();
+
+    // Start polling
+    startMetricsPolling();
+    startTimeSeriesPolling();
+
+    console.log("Resumed test", testId);
+  } catch (error) {
+    console.error("Error resuming test:", error);
+    saveTestIdToStorage(null);
+    removeTestIdFromURL();
+  }
+}
+
 // DOM cache for performance
 const domCache = {
   ctaSection: null,
@@ -444,6 +595,10 @@ document.getElementById("testForm").addEventListener("submit", async (e) => {
     const data = await response.json();
     currentTestId = data.test_id;
 
+    // Save test ID to URL and localStorage
+    setTestIdInURL(currentTestId);
+    saveTestIdToStorage(currentTestId);
+
     // Store test configuration
     testStartTime = Date.now();
     testDurationSeconds = duration;
@@ -520,6 +675,9 @@ function startMetricsPolling() {
         testStartTime = null;
         testDurationSeconds = null;
         testUsers = null;
+        // Clean up URL and storage when test completes
+        removeTestIdFromURL();
+        saveTestIdToStorage(null);
         loadHistory();
       }
     } catch (error) {
@@ -1117,7 +1275,7 @@ function setupEventDelegation() {
 }
 
 // Initialize charts and load history on page load
-window.addEventListener("DOMContentLoaded", () => {
+window.addEventListener("DOMContentLoaded", async () => {
   // Initialize DOM cache first
   initDOMCache();
 
@@ -1127,13 +1285,16 @@ window.addEventListener("DOMContentLoaded", () => {
   // Setup event delegation
   setupEventDelegation();
 
-  // Load history and show CTA
-  loadHistory().then(() => {
-    // After loading, ensure CTA is shown if no test is running
-    if (!currentTestId) {
-      domCache.ctaSection.style.display = "block";
-    }
-  });
+  // Check for running tests and resume if found
+  const resumed = await checkAndResumeTest();
+
+  // Load history
+  await loadHistory();
+
+  // Show CTA if no test is running
+  if (!resumed && !currentTestId) {
+    domCache.ctaSection.style.display = "block";
+  }
 
   // Update chart colors when theme changes
   const observer = new MutationObserver(() => {

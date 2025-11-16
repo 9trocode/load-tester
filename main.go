@@ -53,6 +53,7 @@ func main() {
 	http.HandleFunc("/api/metrics/", requestIDMiddleware(testManager.HandleGetMetrics))
 	http.HandleFunc("/api/timeseries/", requestIDMiddleware(testManager.HandleGetTimeSeries))
 	http.HandleFunc("/api/history", requestIDMiddleware(testManager.HandleGetHistory))
+	http.HandleFunc("/api/running", requestIDMiddleware(testManager.HandleGetRunningTests))
 	http.HandleFunc("/api/historical-metrics/", requestIDMiddleware(testManager.HandleGetHistoricalMetrics))
 	http.HandleFunc("/api/stop/", requestIDMiddleware(testManager.HandleStopTest))
 	http.HandleFunc("/api/report/", requestIDMiddleware(testManager.HandleGenerateReport))

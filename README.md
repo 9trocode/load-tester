@@ -8,6 +8,7 @@ A professional load testing and performance analysis tool built by PipeOps. Desi
 
 - **Live Overview Card** - Real-time display of virtual users, elapsed/remaining time, and progress bar
 - **Clickable History** - Collapsed history items with templated summaries, click to expand
+- **Test Resumption** - Never lose access to running tests! Auto-reconnects after refresh, shareable URLs
 - **Performance Optimizations** - 50-67% memory reduction, 67% CPU reduction
 - **Improved UX** - Smooth animations, better visual hierarchy, mobile responsive
 
@@ -41,6 +42,7 @@ See `IMPLEMENTATION_SUMMARY.md` for complete details.
 - **User Ramp-up** - Gradually increase load over time
 - **Target Authentication** - Support for JWT, Basic Auth, and custom headers
 - **URL Masking** - Automatically masks sensitive URL paths and query parameters
+- **Test Resumption** - Reconnect to running tests after refresh, browser close, or sharing URLs
 
 ### Security & Reliability
 
@@ -168,6 +170,7 @@ To view advanced metrics:
 - `GET /api/metrics/{test_id}` - Get real-time metrics with percentiles
 - `GET /api/timeseries/{test_id}` - Get time-series data for graphs
 - `GET /api/historical-metrics/{test_id}` - Get historical metrics with percentiles and time-series
+- `GET /api/running` - Get all currently running tests (for auto-reconnection)
 - `POST /api/stop/{test_id}` - Stop a running test
 - `GET /api/report/{test_id}` - Generate and download PDF report
 - `GET /api/history` - Get recent test runs
@@ -214,6 +217,62 @@ Click any history item to expand and view:
 - Advanced percentile data
 - Interactive time-series charts
 - Download PDF report option
+
+## Test Resumption (Never Lose Your Tests!)
+
+**Problem:** Accidentally refreshed the page during a test? Lost access to live metrics?
+
+**Solution:** Automatic test reconnection!
+
+### How It Works
+
+When you start a test, the URL updates to include the test ID:
+
+```
+http://localhost:8080/?test_id=123
+```
+
+This means you can:
+
+- ✅ **Refresh the page** - Automatically reconnects to the running test
+- ✅ **Close and reopen browser** - Finds your test and resumes monitoring
+- ✅ **Share the URL** - Colleagues can view the same live test metrics
+- ✅ **Bookmark long tests** - Return anytime during the test duration
+
+### Features
+
+- **URL-based tracking** - Test ID in the URL for easy sharing and bookmarking
+- **localStorage backup** - Persists test ID even if URL is lost
+- **Automatic detection** - Checks server for any running tests on page load
+- **Visual feedback** - Shows "Reconnected to running test" banner with rotating icon
+- **Multi-user viewing** - Multiple people can monitor the same test simultaneously
+- **Smart cleanup** - Automatically removes tracking when test completes
+
+### Priority Order
+
+The system reconnects in this order:
+
+1. URL parameter (`?test_id=123`) - Highest priority
+2. localStorage (`currentTestId`) - If no URL parameter
+3. Server query (`/api/running`) - Finds any running tests
+4. Show CTA - If no tests found
+
+### Example Usage
+
+```bash
+# Start a test
+curl -X POST http://localhost:8080/api/start \
+  -d '{"host": "https://example.com", "users": 10, "duration": 60}'
+
+# Response: {"test_id": 123, "status": "started"}
+
+# Share this URL with your team:
+# http://localhost:8080/?test_id=123
+
+# Everyone can view live metrics in real-time!
+```
+
+See `TEST_RESUMPTION_FEATURE.md` for complete documentation.
 
 ## Understanding Metrics
 
@@ -325,7 +384,8 @@ See `QUICK_START.md` for detailed instructions including:
 
 For complete implementation information, see:
 
-- `IMPLEMENTATION_SUMMARY.md` - Full feature documentation
+- `UPDATE_SUMMARY.md` - Latest features and changes
+- `TEST_RESUMPTION_FEATURE.md` - Test resumption documentation
 - `GO_CODE_REVIEW.md` - Code quality review
 - `GO_REVIEW_ACTION_ITEMS.md` - Development roadmap
 

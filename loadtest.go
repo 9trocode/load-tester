@@ -761,6 +761,29 @@ func (tm *TestManager) HandleGetHistory(w http.ResponseWriter, r *http.Request) 
 	json.NewEncoder(w).Encode(testRuns)
 }
 
+// HandleGetRunningTests returns all currently running tests
+func (tm *TestManager) HandleGetRunningTests(w http.ResponseWriter, r *http.Request) {
+	tm.mu.RLock()
+	defer tm.mu.RUnlock()
+
+	runningTests := make([]map[string]interface{}, 0, len(tm.activeTests))
+	for testID, testCtx := range tm.activeTests {
+		runningTests = append(runningTests, map[string]interface{}{
+			"test_id":     testID,
+			"host":        testCtx.TestRun.Host,
+			"total_users": testCtx.TestRun.TotalUsers,
+			"duration":    testCtx.TestRun.Duration,
+			"started_at":  testCtx.TestRun.StartedAt,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"running_tests": runningTests,
+		"count":         len(runningTests),
+	})
+}
+
 func (tm *TestManager) HandleGetHistoricalMetrics(w http.ResponseWriter, r *http.Request) {
 	testIDStr := r.URL.Path[len("/api/historical-metrics/"):]
 	testID, err := strconv.ParseInt(testIDStr, 10, 64)
