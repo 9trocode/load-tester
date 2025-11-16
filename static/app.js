@@ -406,7 +406,7 @@ function toggleAdvancedMetrics() {
 }
 
 // Chart.js configuration
-function getChartOptions() {
+function getChartOptions(yAxisLabel = "", yAxisUnit = "", maxValue = null) {
   const isDark = document.documentElement.getAttribute("data-theme") === "dark";
   const gridColor = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)";
   const textColor = isDark ? "#94a3b8" : "#64748b";
@@ -414,14 +414,61 @@ function getChartOptions() {
   return {
     responsive: true,
     maintainAspectRatio: true,
+    interaction: {
+      mode: "index",
+      intersect: false,
+    },
     plugins: {
       legend: {
-        display: false,
+        display: true,
+        position: "top",
+        align: "end",
+        labels: {
+          color: textColor,
+          font: {
+            size: 12,
+            weight: "500",
+          },
+          padding: 10,
+          usePointStyle: true,
+          pointStyle: "circle",
+        },
+      },
+      tooltip: {
+        enabled: true,
+        backgroundColor: isDark
+          ? "rgba(30, 41, 59, 0.95)"
+          : "rgba(255, 255, 255, 0.95)",
+        titleColor: textColor,
+        bodyColor: textColor,
+        borderColor: gridColor,
+        borderWidth: 1,
+        padding: 12,
+        displayColors: true,
+        callbacks: {
+          label: function (context) {
+            let label = context.dataset.label || "";
+            if (label) {
+              label += ": ";
+            }
+            if (context.parsed.y !== null) {
+              label += context.parsed.y.toLocaleString("en-US", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              });
+              if (yAxisUnit) {
+                label += " " + yAxisUnit;
+              }
+            }
+            return label;
+          },
+        },
       },
     },
     scales: {
       y: {
         beginAtZero: true,
+        max: maxValue,
         grid: {
           color: gridColor,
           borderWidth: 0,
@@ -430,6 +477,21 @@ function getChartOptions() {
           color: textColor,
           font: {
             size: 11,
+          },
+          callback: function (value) {
+            if (yAxisUnit) {
+              return value.toLocaleString() + " " + yAxisUnit;
+            }
+            return value.toLocaleString();
+          },
+        },
+        title: {
+          display: yAxisLabel ? true : false,
+          text: yAxisLabel,
+          color: textColor,
+          font: {
+            size: 12,
+            weight: "600",
           },
         },
       },
@@ -442,6 +504,18 @@ function getChartOptions() {
           font: {
             size: 11,
           },
+          maxRotation: 0,
+          autoSkip: true,
+          maxTicksLimit: 10,
+        },
+        title: {
+          display: true,
+          text: "Time (seconds)",
+          color: textColor,
+          font: {
+            size: 12,
+            weight: "600",
+          },
         },
       },
     },
@@ -449,8 +523,6 @@ function getChartOptions() {
 }
 
 function initializeCharts() {
-  const chartOptions = getChartOptions();
-
   // Throughput Chart
   const throughputCtx = document
     .getElementById("throughputChart")
@@ -461,18 +533,22 @@ function initializeCharts() {
       labels: [],
       datasets: [
         {
-          label: "Requests Per Second",
+          label: "Throughput",
           data: [],
           borderColor: "rgb(59, 130, 246)",
-          backgroundColor: "rgba(59, 130, 246, 0.05)",
+          backgroundColor: "rgba(59, 130, 246, 0.1)",
           tension: 0.4,
           fill: true,
-          borderWidth: 2,
+          borderWidth: 2.5,
           pointRadius: 0,
+          pointHoverRadius: 5,
+          pointHoverBackgroundColor: "rgb(59, 130, 246)",
+          pointHoverBorderColor: "#fff",
+          pointHoverBorderWidth: 2,
         },
       ],
     },
-    options: chartOptions,
+    options: getChartOptions("Requests per Second", "req/s"),
   });
 
   // Latency Chart
@@ -483,18 +559,22 @@ function initializeCharts() {
       labels: [],
       datasets: [
         {
-          label: "Average Latency (ms)",
+          label: "Response Time",
           data: [],
           borderColor: "rgb(239, 68, 68)",
-          backgroundColor: "rgba(239, 68, 68, 0.05)",
+          backgroundColor: "rgba(239, 68, 68, 0.1)",
           tension: 0.4,
           fill: true,
-          borderWidth: 2,
+          borderWidth: 2.5,
           pointRadius: 0,
+          pointHoverRadius: 5,
+          pointHoverBackgroundColor: "rgb(239, 68, 68)",
+          pointHoverBorderColor: "#fff",
+          pointHoverBorderWidth: 2,
         },
       ],
     },
-    options: chartOptions,
+    options: getChartOptions("Average Latency", "ms"),
   });
 
   // Success Rate Chart
@@ -507,27 +587,22 @@ function initializeCharts() {
       labels: [],
       datasets: [
         {
-          label: "Success Rate (%)",
+          label: "Success Rate",
           data: [],
           borderColor: "rgb(16, 185, 129)",
-          backgroundColor: "rgba(16, 185, 129, 0.05)",
+          backgroundColor: "rgba(16, 185, 129, 0.1)",
           tension: 0.4,
           fill: true,
-          borderWidth: 2,
+          borderWidth: 2.5,
           pointRadius: 0,
+          pointHoverRadius: 5,
+          pointHoverBackgroundColor: "rgb(16, 185, 129)",
+          pointHoverBorderColor: "#fff",
+          pointHoverBorderWidth: 2,
         },
       ],
     },
-    options: {
-      ...chartOptions,
-      scales: {
-        ...chartOptions.scales,
-        y: {
-          ...chartOptions.scales.y,
-          max: 100,
-        },
-      },
-    },
+    options: getChartOptions("Success Rate", "%", 100),
   });
 }
 
@@ -785,23 +860,56 @@ const updateMetricsThrottled = throttle(function (metrics) {
         : 0;
     domCache.successRate.textContent = successRate + "%";
 
-    domCache.rps.textContent = metrics.rps.toFixed(2);
-    domCache.avgLatency.textContent = metrics.avg_latency.toFixed(2) + " ms";
-    domCache.minLatency.textContent = metrics.min_latency.toFixed(2) + " ms";
-    domCache.maxLatency.textContent = metrics.max_latency.toFixed(2) + " ms";
+    domCache.rps.textContent =
+      metrics.rps.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }) + " req/s";
+    domCache.avgLatency.textContent =
+      metrics.avg_latency.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }) + " ms";
+    domCache.minLatency.textContent =
+      metrics.min_latency.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }) + " ms";
+    domCache.maxLatency.textContent =
+      metrics.max_latency.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }) + " ms";
 
     // Advanced metrics
     domCache.p50Latency.textContent =
-      (metrics.p50_latency || 0).toFixed(2) + " ms";
+      (metrics.p50_latency || 0).toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }) + " ms";
     domCache.p95Latency.textContent =
-      (metrics.p95_latency || 0).toFixed(2) + " ms";
+      (metrics.p95_latency || 0).toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }) + " ms";
     domCache.p99Latency.textContent =
-      (metrics.p99_latency || 0).toFixed(2) + " ms";
-    domCache.errorRate.textContent = (metrics.error_rate || 0).toFixed(2) + "%";
+      (metrics.p99_latency || 0).toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }) + " ms";
+    domCache.errorRate.textContent =
+      (metrics.error_rate || 0).toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }) + "%";
     domCache.totalErrors.textContent = (
       metrics.error_count || 0
     ).toLocaleString();
-    domCache.avgRPS.textContent = (metrics.avg_rps || 0).toFixed(2);
+    domCache.avgRPS.textContent =
+      (metrics.avg_rps || 0).toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }) + " req/s";
   });
 }, 100); // Throttle to max 10 updates per second
 
@@ -1097,7 +1205,6 @@ function renderHistoryCharts(testId, timeSeries) {
     return;
   }
 
-  const chartOptions = getChartOptions();
   const labels = timeSeries.map((_, i) => `${i}s`);
   const rpsData = timeSeries.map((point) => point.rps || 0);
   const latencyData = timeSeries.map((point) => point.avg_latency || 0);
@@ -1112,18 +1219,22 @@ function renderHistoryCharts(testId, timeSeries) {
         labels: labels,
         datasets: [
           {
-            label: "RPS",
+            label: "Throughput",
             data: rpsData,
             borderColor: "#3b82f6",
             backgroundColor: "rgba(59, 130, 246, 0.1)",
             tension: 0.4,
             fill: true,
-            borderWidth: 2,
+            borderWidth: 2.5,
             pointRadius: 0,
+            pointHoverRadius: 4,
+            pointHoverBackgroundColor: "#3b82f6",
+            pointHoverBorderColor: "#fff",
+            pointHoverBorderWidth: 2,
           },
         ],
       },
-      options: chartOptions,
+      options: getChartOptions("Requests per Second", "req/s"),
     });
   }
 
@@ -1136,18 +1247,22 @@ function renderHistoryCharts(testId, timeSeries) {
         labels: labels,
         datasets: [
           {
-            label: "Latency (ms)",
+            label: "Response Time",
             data: latencyData,
             borderColor: "#10b981",
             backgroundColor: "rgba(16, 185, 129, 0.1)",
             tension: 0.4,
             fill: true,
-            borderWidth: 2,
+            borderWidth: 2.5,
             pointRadius: 0,
+            pointHoverRadius: 4,
+            pointHoverBackgroundColor: "#10b981",
+            pointHoverBorderColor: "#fff",
+            pointHoverBorderWidth: 2,
           },
         ],
       },
-      options: chartOptions,
+      options: getChartOptions("Average Latency", "ms"),
     });
   }
 
@@ -1160,27 +1275,22 @@ function renderHistoryCharts(testId, timeSeries) {
         labels: labels,
         datasets: [
           {
-            label: "Success Rate (%)",
+            label: "Success Rate",
             data: successRateData,
             borderColor: "#f59e0b",
             backgroundColor: "rgba(245, 158, 11, 0.1)",
             tension: 0.4,
             fill: true,
-            borderWidth: 2,
+            borderWidth: 2.5,
             pointRadius: 0,
+            pointHoverRadius: 4,
+            pointHoverBackgroundColor: "#f59e0b",
+            pointHoverBorderColor: "#fff",
+            pointHoverBorderWidth: 2,
           },
         ],
       },
-      options: {
-        ...chartOptions,
-        scales: {
-          ...chartOptions.scales,
-          y: {
-            ...chartOptions.scales.y,
-            max: 100,
-          },
-        },
-      },
+      options: getChartOptions("Success Rate", "%", 100),
     });
   }
 }

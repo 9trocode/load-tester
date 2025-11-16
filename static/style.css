@@ -509,46 +509,93 @@ select.input {
 .metric {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    background: var(--pipeops-surface);
+    border-radius: 8px;
+    border: 1px solid var(--pipeops-border);
+    transition: all 0.2s ease;
+}
+
+.metric:hover {
+    border-color: var(--pipeops-primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+[data-theme="dark"] .metric:hover {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
 }
 
 .metric-label {
-    font-size: 0.75rem;
-    font-weight: 500;
+    font-size: 0.6875rem;
+    font-weight: 600;
     color: var(--pipeops-text-light);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.08em;
+    line-height: 1.2;
 }
 
 .metric-value {
-    font-size: 1.5rem;
-    font-weight: 600;
+    font-size: 1.75rem;
+    font-weight: 700;
     color: var(--pipeops-text);
     line-height: 1;
     font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+}
+
+/* Metric value color coding */
+.metric:has(#successRate) .metric-value,
+.metric:has(#successRate) .metric-label {
+    color: var(--pipeops-success);
+}
+
+.metric:has(#errorRate) .metric-value,
+.metric:has(#totalErrors) .metric-value {
+    color: var(--pipeops-danger);
+}
+
+.metric:has(#rps) .metric-value,
+.metric:has(#avgRPS) .metric-value {
+    color: var(--pipeops-primary);
+}
+
+.metric:has(#avgLatency) .metric-value,
+.metric:has(#minLatency) .metric-value,
+.metric:has(#maxLatency) .metric-value,
+.metric:has(#p50Latency) .metric-value,
+.metric:has(#p95Latency) .metric-value,
+.metric:has(#p99Latency) .metric-value {
+    color: var(--pipeops-warning);
 }
 
 /* Charts */
 .charts-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.25rem;
     contain: layout;
 }
 
 .chart-card {
-    background: var(--pipeops-bg);
+    background: var(--pipeops-surface);
     border: 1px solid var(--pipeops-border);
-    border-radius: 6px;
-    padding: 1rem;
-    contain: layout style paint;
+    border-radius: 8px;
+    padding: 1.25rem;
+    contain: layout;
+    transition: border-color 0.2s ease;
+}
+
+.chart-card:hover {
+    border-color: var(--pipeops-primary);
 }
 
 .chart-header {
-    font-size: 0.8125rem;
-    font-weight: 500;
+    font-size: 0.875rem;
+    font-weight: 600;
     color: var(--pipeops-text);
-    margin-bottom: 0.75rem;
+    margin-bottom: 1rem;
+    letter-spacing: -0.01em;
 }
 
 .chart-container {
