@@ -729,7 +729,7 @@ select:focus {
 }
 
 /* Modal - Compact */
-.modal {
+.modal-overlay {
     display: none;
     position: fixed;
     top: 0;
@@ -742,11 +742,7 @@ select:focus {
     justify-content: center;
 }
 
-.modal.active {
-    display: flex;
-}
-
-.modal-content {
+.modal {
     background: var(--pipeops-surface);
     border-radius: 8px;
     max-width: 600px;
@@ -756,7 +752,7 @@ select:focus {
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
 }
 
-[data-theme="dark"] .modal-content {
+[data-theme="dark"] .modal {
     background: var(--pipeops-bg);
     color: var(--pipeops-text);
 }
