@@ -94,6 +94,16 @@ func renderTitle(pdf *gofpdf.Fpdf, testRun *TestRun) {
 	pdf.SetFont("Arial", "", 12)
 	pdf.CellFormat(0, 6, maskTargetHost(testRun.Host), "", 1, "L", false, 0, "")
 	pdf.Ln(4)
+
+	// Add summary text
+	pdf.SetFillColor(colorPanel.R, colorPanel.G, colorPanel.B)
+	pdf.SetDrawColor(colorBorder.R, colorBorder.G, colorBorder.B)
+	pdf.Rect(pdf.GetX(), pdf.GetY(), 180, 0, "D")
+	pdf.SetFont("Arial", "", 10)
+	pdf.SetTextColor(colorText.R, colorText.G, colorText.B)
+	summary := generateTestSummary(testRun)
+	pdf.MultiCell(180, 5, summary, "", "L", false)
+	pdf.Ln(2)
 }
 
 func renderOverview(pdf *gofpdf.Fpdf, testRun *TestRun) {
@@ -590,4 +600,23 @@ func formatTimestampRange(start, end time.Time) string {
 		return startText
 	}
 	return fmt.Sprintf("%s → %s", startText, end.Local().Format("02 Jan 2006 15:04:05"))
+}
+
+func generateTestSummary(testRun *TestRun) string {
+	successRate := calculatePercentage(testRun.SuccessCount, testRun.TotalRequests)
+	userText := "user"
+	if testRun.TotalUsers != 1 {
+		userText = "users"
+	}
+
+	return fmt.Sprintf(
+		"Tested %s with %d virtual %s for %s - %.1f%% success rate, %.2f RPS, %.2f ms avg latency",
+		maskTargetHost(testRun.Host),
+		testRun.TotalUsers,
+		userText,
+		formatDurationFromSeconds(testRun.Duration),
+		successRate,
+		testRun.RPS,
+		testRun.AvgLatency,
+	)
 }

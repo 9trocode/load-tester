@@ -6,6 +6,10 @@ let latencyChart = null;
 let successRateChart = null;
 let showAdvancedMetrics = false;
 let expandedHistoryItems = new Set();
+let testStartTime = null;
+let testDurationSeconds = null;
+let testUsers = null;
+let collapsedHistoryItems = new Set(); // Track collapsed state (all start collapsed)
 
 // URL masking function - completely masks URLs showing only protocol and domain
 function maskUrl(url) {
@@ -41,6 +45,16 @@ function maskUrl(url) {
     const hostOnly = url.split("/")[0].split("?")[0].split(":")[0];
     return hostOnly;
   }
+}
+
+// Generate test summary text
+function generateTestSummary(test) {
+  const successRate =
+    test.total_requests > 0
+      ? ((test.success_count / test.total_requests) * 100).toFixed(1)
+      : 0;
+
+  return `Tested ${maskUrl(test.host)} with ${test.total_users} virtual user${test.total_users !== 1 ? "s" : ""} for ${test.duration}s - ${successRate}% success rate, ${test.rps.toFixed(2)} RPS, ${test.avg_latency.toFixed(2)}ms avg latency`;
 }
 
 // Modal functions
@@ -364,8 +378,21 @@ document.getElementById("testForm").addEventListener("submit", async (e) => {
     const data = await response.json();
     currentTestId = data.test_id;
 
+    // Store test configuration
+    testStartTime = Date.now();
+    testDurationSeconds = duration;
+    testUsers = users;
+
     // Store host for display
     document.getElementById("currentHostUrl").textContent = maskUrl(host);
+
+    // Update overview fields
+    document.getElementById("virtualUsers").textContent = users;
+    document.getElementById("testDuration").textContent = duration + "s";
+    document.getElementById("elapsedTime").textContent = "0s";
+    document.getElementById("remainingTime").textContent = duration + "s";
+    document.getElementById("progressPercentage").textContent = "0%";
+    document.getElementById("progressBarFill").style.width = "0%";
 
     closeTestModal();
     document.getElementById("ctaSection").style.display = "none";
@@ -424,6 +451,9 @@ function startMetricsPolling() {
         document.getElementById("metricsSection").style.display = "none";
         document.getElementById("historySection").style.display = "block";
         currentTestId = null;
+        testStartTime = null;
+        testDurationSeconds = null;
+        testUsers = null;
         loadHistory();
       }
     } catch (error) {
@@ -469,6 +499,25 @@ function stopMetricsPolling() {
 }
 
 function updateMetrics(metrics) {
+  // Update live overview (elapsed time, remaining time, progress)
+  if (testStartTime && testDurationSeconds) {
+    const elapsedSeconds = Math.floor((Date.now() - testStartTime) / 1000);
+    const remainingSeconds = Math.max(0, testDurationSeconds - elapsedSeconds);
+    const progressPercent = Math.min(
+      100,
+      (elapsedSeconds / testDurationSeconds) * 100,
+    );
+
+    document.getElementById("elapsedTime").textContent =
+      formatTime(elapsedSeconds);
+    document.getElementById("remainingTime").textContent =
+      formatTime(remainingSeconds);
+    document.getElementById("progressPercentage").textContent =
+      progressPercent.toFixed(1) + "%";
+    document.getElementById("progressBarFill").style.width =
+      progressPercent + "%";
+  }
+
   // Basic metrics
   document.getElementById("totalRequests").textContent =
     metrics.total_requests.toLocaleString();
@@ -502,6 +551,15 @@ function updateMetrics(metrics) {
   document.getElementById("avgRPS").textContent = (
     metrics.avg_rps || 0
   ).toFixed(2);
+}
+
+function formatTime(seconds) {
+  if (seconds < 60) {
+    return seconds + "s";
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return minutes + "m " + remainingSeconds + "s";
 }
 
 function updateCharts(timeSeries) {
@@ -583,7 +641,7 @@ function displayHistory(history) {
   historyList.innerHTML = history
     .map(
       (test) => `
-        <div class="history-item" id="history-item-${test.id}">
+        <div class="history-item" id="history-item-${test.id}" onclick="toggleHistoryDetails(${test.id}, event)">
             <div class="history-item-header">
                 <div class="history-item-url">${escapeHtml(maskUrl(test.host))}</div>
                 <div class="history-item-meta">
@@ -591,42 +649,48 @@ function displayHistory(history) {
                     <span class="history-item-time">${formatDate(test.started_at)}</span>
                 </div>
             </div>
-            <div class="history-item-metrics">
-                <div class="history-metric">
-                    <span class="history-metric-label">Users</span>
-                    <span class="history-metric-value">${test.total_users}</span>
-                </div>
-                <div class="history-metric">
-                    <span class="history-metric-label">Requests</span>
-                    <span class="history-metric-value">${test.total_requests.toLocaleString()}</span>
-                </div>
-                <div class="history-metric">
-                    <span class="history-metric-label">Success</span>
-                    <span class="history-metric-value">${test.total_requests > 0 ? ((test.success_count / test.total_requests) * 100).toFixed(1) : 0}%</span>
-                </div>
-                <div class="history-metric">
-                    <span class="history-metric-label">RPS</span>
-                    <span class="history-metric-value">${test.rps.toFixed(2)}</span>
-                </div>
-                <div class="history-metric">
-                    <span class="history-metric-label">Latency</span>
-                    <span class="history-metric-value">${test.avg_latency.toFixed(2)}ms</span>
-                </div>
-                <div class="history-metric">
-                    <span class="history-metric-label">Duration</span>
-                    <span class="history-metric-value">${test.duration}s</span>
-                </div>
+            <div class="history-item-summary">
+                <p class="summary-text">${escapeHtml(generateTestSummary(test))}</p>
+                <span class="expand-indicator">▼ Click to view details</span>
             </div>
-            <div class="history-item-actions">
-                <button class="btn btn-secondary btn-sm" onclick="toggleAdvancedView(this, ${test.id})">
-                    Advanced View
-                </button>
-                <button class="btn btn-secondary btn-sm" onclick="downloadReport(${test.id})">
-                    Download Report
-                </button>
-            </div>
-            <div id="advanced-view-${test.id}" class="history-advanced-view" style="display: none;">
-                <div class="loading-state">Loading advanced metrics...</div>
+            <div class="history-item-details" id="details-${test.id}" style="display: none;">
+                <div class="history-item-metrics">
+                    <div class="history-metric">
+                        <span class="history-metric-label">Users</span>
+                        <span class="history-metric-value">${test.total_users}</span>
+                    </div>
+                    <div class="history-metric">
+                        <span class="history-metric-label">Requests</span>
+                        <span class="history-metric-value">${test.total_requests.toLocaleString()}</span>
+                    </div>
+                    <div class="history-metric">
+                        <span class="history-metric-label">Success</span>
+                        <span class="history-metric-value">${test.total_requests > 0 ? ((test.success_count / test.total_requests) * 100).toFixed(1) : 0}%</span>
+                    </div>
+                    <div class="history-metric">
+                        <span class="history-metric-label">RPS</span>
+                        <span class="history-metric-value">${test.rps.toFixed(2)}</span>
+                    </div>
+                    <div class="history-metric">
+                        <span class="history-metric-label">Latency</span>
+                        <span class="history-metric-value">${test.avg_latency.toFixed(2)}ms</span>
+                    </div>
+                    <div class="history-metric">
+                        <span class="history-metric-label">Duration</span>
+                        <span class="history-metric-value">${test.duration}s</span>
+                    </div>
+                </div>
+                <div class="history-item-actions">
+                    <button class="btn btn-secondary btn-sm" onclick="toggleAdvancedView(this, ${test.id}, event)">
+                        Advanced View
+                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="downloadReport(${test.id}, event)">
+                        Download Report
+                    </button>
+                </div>
+                <div id="advanced-view-${test.id}" class="history-advanced-view" style="display: none;">
+                    <div class="loading-state">Loading advanced metrics...</div>
+                </div>
             </div>
         </div>
     `,
@@ -634,7 +698,39 @@ function displayHistory(history) {
     .join("");
 }
 
-async function toggleAdvancedView(button, testId) {
+function toggleHistoryDetails(testId, event) {
+  // Prevent toggle if clicking on buttons
+  if (
+    event &&
+    (event.target.tagName === "BUTTON" || event.target.closest("button"))
+  ) {
+    return;
+  }
+
+  const detailsDiv = document.getElementById(`details-${testId}`);
+  const historyItem = document.getElementById(`history-item-${testId}`);
+  const expandIndicator = historyItem.querySelector(".expand-indicator");
+
+  if (collapsedHistoryItems.has(testId)) {
+    // Expand
+    detailsDiv.style.display = "block";
+    collapsedHistoryItems.delete(testId);
+    expandIndicator.textContent = "▲ Click to hide details";
+    historyItem.classList.add("expanded");
+  } else {
+    // Collapse
+    detailsDiv.style.display = "none";
+    collapsedHistoryItems.add(testId);
+    expandIndicator.textContent = "▼ Click to view details";
+    historyItem.classList.remove("expanded");
+  }
+}
+
+async function toggleAdvancedView(button, testId, event) {
+  if (event) {
+    event.stopPropagation();
+  }
+
   const advancedView = document.getElementById(`advanced-view-${testId}`);
 
   if (expandedHistoryItems.has(testId)) {
@@ -812,7 +908,11 @@ function renderHistoryCharts(testId, timeSeries) {
   }
 }
 
-async function downloadReport(testId) {
+async function downloadReport(testId, event) {
+  if (event) {
+    event.stopPropagation();
+  }
+
   try {
     const response = await fetch(`/api/report/${testId}`);
     if (!response.ok) {
