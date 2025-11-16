@@ -204,5 +204,3 @@ This tells you that while most requests are fast (~45ms), 5% of users experience
 ## License
 
 Copyright © 2024 PipeOps. All rights reserved.
-
-# load-tester
