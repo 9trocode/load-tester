@@ -1,0 +1,11 @@
+[phases.setup]
+nixPkgs = ["gcc", "go_1_21"]
+
+[phases.build]
+cmds = ["CGO_ENABLED=1 go build -o load-tester ."]
+
+[start]
+cmd = "./load-tester"
+
+[variables]
+CGO_ENABLED = "1"

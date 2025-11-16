@@ -1,0 +1,12 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "./load-tester"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 10
+
+[healthcheck]
+path = "/"
+timeout = 10
+interval = 30
