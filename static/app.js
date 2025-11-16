@@ -585,8 +585,8 @@ document.getElementById("testForm").addEventListener("submit", async (e) => {
     return;
   }
 
-  if (rampUp < 1 || rampUp > 60) {
-    alert("Ramp-up time must be between 1 and 60 seconds");
+  if (rampUp < 0 || rampUp > 300) {
+    alert("Ramp-up time must be between 0 and 300 seconds");
     return;
   }
 
@@ -1315,6 +1315,56 @@ function setupEventDelegation() {
   });
 }
 
+// Real-time input validation
+function setupInputValidation() {
+  const usersInput = document.getElementById("users");
+  const rampUpInput = document.getElementById("rampUp");
+  const durationInput = document.getElementById("duration");
+
+  function validateInput(input, min, max, fieldName) {
+    const value = parseInt(input.value);
+
+    if (isNaN(value) || value < min || value > max) {
+      input.setCustomValidity(`${fieldName} must be between ${min} and ${max}`);
+      input.style.borderColor = "#ef4444";
+    } else {
+      input.setCustomValidity("");
+      input.style.borderColor = "";
+    }
+  }
+
+  usersInput.addEventListener("input", () => {
+    validateInput(usersInput, 1, 1000, "Users");
+  });
+
+  rampUpInput.addEventListener("input", () => {
+    validateInput(rampUpInput, 0, 300, "Ramp-up time");
+
+    // Also check if ramp-up exceeds duration
+    const duration = parseInt(durationInput.value);
+    const rampUp = parseInt(rampUpInput.value);
+    if (!isNaN(duration) && !isNaN(rampUp) && rampUp > duration) {
+      rampUpInput.setCustomValidity("Ramp-up time cannot exceed test duration");
+      rampUpInput.style.borderColor = "#ef4444";
+    }
+  });
+
+  durationInput.addEventListener("input", () => {
+    validateInput(durationInput, 1, 300, "Duration");
+
+    // Re-validate ramp-up when duration changes
+    const duration = parseInt(durationInput.value);
+    const rampUp = parseInt(rampUpInput.value);
+    if (!isNaN(duration) && !isNaN(rampUp) && rampUp > duration) {
+      rampUpInput.setCustomValidity("Ramp-up time cannot exceed test duration");
+      rampUpInput.style.borderColor = "#ef4444";
+    } else {
+      rampUpInput.setCustomValidity("");
+      rampUpInput.style.borderColor = "";
+    }
+  });
+}
+
 // Initialize charts and load history on page load
 window.addEventListener("DOMContentLoaded", async () => {
   console.log("[Init] Page loaded, initializing...");
@@ -1326,6 +1376,10 @@ window.addEventListener("DOMContentLoaded", async () => {
   initTheme();
   initializeCharts();
   console.log("[Init] Theme and charts initialized");
+
+  // Setup input validation
+  setupInputValidation();
+  console.log("[Init] Input validation initialized");
 
   // Setup event delegation
   setupEventDelegation();

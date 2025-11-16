@@ -389,13 +389,24 @@ Send SIGTERM or SIGINT to trigger graceful shutdown:
 
 ## Resource Limits
 
-| Parameter        | Minimum              | Maximum         | Default |
-| ---------------- | -------------------- | --------------- | ------- |
-| Users            | 1                    | 1,000           | 10      |
-| Duration         | 1 sec                | 300 sec (5 min) | 30 sec  |
-| Ramp-up          | 0 sec                | 300 sec         | 5 sec   |
-| Concurrent Tests | -                    | 5               | -       |
-| Rate Limit       | 5 sec between starts | -               | -       |
+| Parameter         | Minimum              | Maximum         | Default |
+| ----------------- | -------------------- | --------------- | ------- |
+| Users             | 1                    | 1,000           | 10      |
+| Duration          | 1 sec                | 300 sec (5 min) | 30 sec  |
+| Ramp-up           | 0 sec                | 300 sec         | 5 sec   |
+| Concurrent Tests  | -                    | 50              | -       |
+| Tests Per IP      | -                    | 3               | -       |
+| Rate Limit (Time) | 5 sec between starts | -               | -       |
+
+### Abuse Prevention
+
+- **Time-Based Rate Limiting**: 5 seconds minimum between test starts from the same IP
+- **Concurrent Tests Per IP**: Maximum 3 simultaneous tests per IP address
+- **Global Concurrent Tests**: Maximum 50 tests running across all IPs
+- **IP Tracking**: Tests tracked per IP and automatically cleaned up on completion
+- **Monitoring**: Debug endpoint at `/api/ip-stats` shows active tests per IP
+
+See `IP_RATE_LIMITING.md` for detailed documentation on abuse prevention mechanisms.
 
 ## Quick Start Guide
 

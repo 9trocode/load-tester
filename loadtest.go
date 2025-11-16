@@ -34,10 +34,14 @@ type TestManager struct {
 	// For production, consider using a proper rate limiter library
 	lastTestStarts map[string]time.Time
 	rateLimitMu    sync.Mutex
+	// Track active tests per IP for abuse prevention
+	testsPerIP   map[string]map[string]bool // IP -> Set of test UUIDs
+	testsPerIPMu sync.Mutex
 }
 
 type TestContext struct {
 	TestRun    *TestRun
+	Context    context.Context
 	Cancel     context.CancelFunc
 	Metrics    *MetricsCollector
 	IsRunning  *atomic.Bool
@@ -77,6 +81,7 @@ func NewTestManager(db *sql.DB) *TestManager {
 		db:             db,
 		activeTests:    make(map[string]*TestContext),
 		lastTestStarts: make(map[string]time.Time),
+		testsPerIP:     make(map[string]map[string]bool),
 	}
 
 	// Start periodic cleanup goroutine for rate limit map
@@ -121,11 +126,12 @@ func (tm *TestManager) Shutdown() {
 const (
 	MaxUsers           = 1000  // Maximum concurrent users per test
 	MaxDuration        = 300   // Maximum duration in seconds (5 minutes)
-	MaxRampUpSec       = 60    // Maximum ramp-up time in seconds
+	MaxRampUpSec       = 300   // Maximum ramp-up time in seconds
 	MinUsers           = 1     // Minimum users
 	MinDuration        = 1     // Minimum duration in seconds
-	MinRampUpSec       = 1     // Minimum ramp-up time in seconds
+	MinRampUpSec       = 0     // Minimum ramp-up time in seconds (0 = start all users immediately)
 	MaxConcurrentTests = 50    // Maximum concurrent active tests (prevents resource exhaustion)
+	MaxTestsPerIP      = 3     // Maximum concurrent tests per IP address (prevents abuse)
 	MaxLatencySamples  = 10000 // Maximum latency samples to keep in memory per test
 	RateLimitSeconds   = 5     // Minimum seconds between test starts per IP
 )
@@ -201,6 +207,21 @@ func (tm *TestManager) HandleStartTest(w http.ResponseWriter, r *http.Request) {
 		clientIP = strings.TrimSpace(clientIP)
 	}
 
+	// Check concurrent tests per IP limit
+	tm.testsPerIPMu.Lock()
+	if testsForIP, exists := tm.testsPerIP[clientIP]; exists {
+		if len(testsForIP) >= MaxTestsPerIP {
+			tm.testsPerIPMu.Unlock()
+			slog.Warn("IP exceeded concurrent test limit",
+				"client_ip", clientIP,
+				"active_tests", len(testsForIP),
+				"max_allowed", MaxTestsPerIP)
+			http.Error(w, fmt.Sprintf("Maximum concurrent tests per IP limit reached (%d). Please wait for a test to complete.", MaxTestsPerIP), http.StatusTooManyRequests)
+			return
+		}
+	}
+	tm.testsPerIPMu.Unlock()
+
 	tm.rateLimitMu.Lock()
 	lastStart, exists := tm.lastTestStarts[clientIP]
 	now := time.Now()
@@ -249,6 +270,7 @@ func (tm *TestManager) HandleStartTest(w http.ResponseWriter, r *http.Request) {
 
 	testCtx := &TestContext{
 		TestRun:    testRun,
+		Context:    ctx,
 		Cancel:     cancel,
 		Metrics:    metrics,
 		IsRunning:  isRunning,
@@ -259,8 +281,21 @@ func (tm *TestManager) HandleStartTest(w http.ResponseWriter, r *http.Request) {
 	tm.activeTests[testUUID] = testCtx
 	tm.mu.Unlock()
 
-	// Start load test in goroutine
-	go tm.runLoadTest(ctx, testCtx)
+	// Track test for this IP
+	tm.testsPerIPMu.Lock()
+	if tm.testsPerIP[clientIP] == nil {
+		tm.testsPerIP[clientIP] = make(map[string]bool)
+	}
+	tm.testsPerIP[clientIP][testUUID] = true
+	tm.testsPerIPMu.Unlock()
+
+	slog.Info("Test started",
+		"test_uuid", testUUID,
+		"client_ip", clientIP,
+		"ip_active_tests", len(tm.testsPerIP[clientIP]))
+
+	// Start load test
+	go tm.runLoadTest(testCtx, clientIP)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -270,17 +305,36 @@ func (tm *TestManager) HandleStartTest(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (tm *TestManager) runLoadTest(ctx context.Context, testCtx *TestContext) {
+func (tm *TestManager) runLoadTest(testCtx *TestContext, clientIP string) {
 	defer func() {
 		// Calculate final metrics before cleanup
 		tm.calculateAndSaveMetrics(testCtx)
 
 		testCtx.IsRunning.Store(false)
+		testUUID := testCtx.TestRun.UUID
+
+		// Remove from active tests
 		tm.mu.Lock()
-		delete(tm.activeTests, testCtx.TestRun.UUID)
+		delete(tm.activeTests, testUUID)
 		tm.mu.Unlock()
+
+		// Remove from IP tracking
+		tm.testsPerIPMu.Lock()
+		if testsForIP, exists := tm.testsPerIP[clientIP]; exists {
+			delete(testsForIP, testUUID)
+			// Clean up empty IP entries
+			if len(testsForIP) == 0 {
+				delete(tm.testsPerIP, clientIP)
+			}
+		}
+		tm.testsPerIPMu.Unlock()
+
+		slog.Info("Test completed and cleaned up",
+			"test_uuid", testUUID,
+			"client_ip", clientIP)
 	}()
 
+	ctx := testCtx.Context
 	testRun := testCtx.TestRun
 	metrics := testCtx.Metrics
 	authConfig := testCtx.AuthConfig
@@ -980,6 +1034,42 @@ func (tm *TestManager) HandleGetTimeSeries(w http.ResponseWriter, r *http.Reques
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(timeSeries)
+}
+
+// HandleGetIPStats returns debug information about active tests per IP
+func (tm *TestManager) HandleGetIPStats(w http.ResponseWriter, r *http.Request) {
+	tm.testsPerIPMu.Lock()
+	defer tm.testsPerIPMu.Unlock()
+
+	type IPStats struct {
+		IP         string   `json:"ip"`
+		TestCount  int      `json:"test_count"`
+		TestUUIDs  []string `json:"test_uuids"`
+		AtLimit    bool     `json:"at_limit"`
+		MaxAllowed int      `json:"max_allowed"`
+	}
+
+	stats := make([]IPStats, 0, len(tm.testsPerIP))
+	for ip, tests := range tm.testsPerIP {
+		uuids := make([]string, 0, len(tests))
+		for uuid := range tests {
+			uuids = append(uuids, uuid)
+		}
+		stats = append(stats, IPStats{
+			IP:         ip,
+			TestCount:  len(tests),
+			TestUUIDs:  uuids,
+			AtLimit:    len(tests) >= MaxTestsPerIP,
+			MaxAllowed: MaxTestsPerIP,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"total_ips":        len(stats),
+		"max_tests_per_ip": MaxTestsPerIP,
+		"ip_stats":         stats,
+	})
 }
 
 func (tm *TestManager) HandleGenerateReport(w http.ResponseWriter, r *http.Request) {

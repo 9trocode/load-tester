@@ -58,6 +58,7 @@ func main() {
 	http.HandleFunc("/api/historical-metrics/", requestIDMiddleware(testManager.HandleGetHistoricalMetrics))
 	http.HandleFunc("/api/stop/", requestIDMiddleware(testManager.HandleStopTest))
 	http.HandleFunc("/api/report/", requestIDMiddleware(testManager.HandleGenerateReport))
+	http.HandleFunc("/api/ip-stats", requestIDMiddleware(testManager.HandleGetIPStats))
 
 	// Serve static files
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))

@@ -305,11 +305,12 @@
                                     name="users"
                                     min="1"
                                     max="1000"
+                                    step="1"
                                     value="10"
                                     required
                                     class="input"
                                 />
-                                <div class="form-hint">Max: 1000 users</div>
+                                <div class="form-hint">1-1,000 users</div>
                             </div>
 
                             <div class="form-field">
@@ -318,13 +319,16 @@
                                     type="number"
                                     id="rampUp"
                                     name="rampUp"
-                                    min="1"
-                                    max="60"
+                                    min="0"
+                                    max="300"
+                                    step="1"
                                     value="5"
                                     required
                                     class="input"
                                 />
-                                <div class="form-hint">Max: 60 seconds</div>
+                                <div class="form-hint">
+                                    0-300 seconds (0 = instant)
+                                </div>
                             </div>
 
                             <div class="form-field">
@@ -335,12 +339,13 @@
                                     name="duration"
                                     min="1"
                                     max="300"
+                                    step="1"
                                     value="30"
                                     required
                                     class="input"
                                 />
                                 <div class="form-hint">
-                                    Max: 300 seconds (5 min)
+                                    1-300 seconds (5 minutes max)
                                 </div>
                             </div>
                         </div>
