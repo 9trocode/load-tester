@@ -43,46 +43,57 @@ function getTestIdFromStorage() {
 
 // Check for running tests and resume if found
 async function checkAndResumeTest() {
+  console.log("[Resume] Starting test resumption check...");
+
   // Priority 1: URL parameter
   let testId = getTestIdFromURL();
+  console.log("[Resume] URL test_id:", testId);
 
   if (testId) {
-    console.log("Found test ID in URL:", testId);
+    console.log("[Resume] Found test ID in URL:", testId);
     await resumeTest(parseInt(testId));
     return true;
   }
 
   // Priority 2: localStorage
   testId = getTestIdFromStorage();
+  console.log("[Resume] localStorage test_id:", testId);
+
   if (testId) {
-    console.log("Found test ID in localStorage:", testId);
+    console.log("[Resume] Found test ID in localStorage:", testId);
     // Verify it's still running
     const isRunning = await checkIfTestRunning(parseInt(testId));
+    console.log("[Resume] Test still running?", isRunning);
+
     if (isRunning) {
       await resumeTest(parseInt(testId));
       return true;
     } else {
       // Clean up if not running
+      console.log("[Resume] Cleaning up localStorage (test not running)");
       saveTestIdToStorage(null);
     }
   }
 
   // Priority 3: Check for any running tests
+  console.log("[Resume] Checking server for running tests...");
   try {
     const response = await fetch("/api/running");
     const data = await response.json();
+    console.log("[Resume] Server running tests:", data);
 
     if (data.running_tests && data.running_tests.length > 0) {
       // Resume the most recent running test
       const mostRecent = data.running_tests[0];
-      console.log("Found running test:", mostRecent.test_id);
+      console.log("[Resume] Found running test:", mostRecent.test_id);
       await resumeTest(mostRecent.test_id);
       return true;
     }
   } catch (error) {
-    console.error("Error checking for running tests:", error);
+    console.error("[Resume] Error checking for running tests:", error);
   }
 
+  console.log("[Resume] No running tests found");
   return false;
 }
 
@@ -100,16 +111,21 @@ async function checkIfTestRunning(testId) {
 
 // Resume monitoring an existing test
 async function resumeTest(testId) {
+  console.log("[Resume] Attempting to resume test:", testId);
+
   try {
     const response = await fetch(`/api/status/${testId}`);
+    console.log("[Resume] Status response:", response.ok, response.status);
+
     if (!response.ok) {
       throw new Error("Test not found");
     }
 
     const data = await response.json();
+    console.log("[Resume] Status data:", data);
 
     if (!data.is_running) {
-      console.log("Test", testId, "is no longer running");
+      console.log("[Resume] Test", testId, "is no longer running");
       saveTestIdToStorage(null);
       removeTestIdFromURL();
       return;
@@ -123,6 +139,13 @@ async function resumeTest(testId) {
     testDurationSeconds = testRun.duration;
     testUsers = testRun.total_users;
 
+    console.log("[Resume] Test config:", {
+      currentTestId,
+      testStartTime,
+      testDurationSeconds,
+      testUsers,
+    });
+
     // Update URL and storage
     setTestIdInURL(testId);
     saveTestIdToStorage(testId);
@@ -135,11 +158,14 @@ async function resumeTest(testId) {
     // Show resumed banner
     const resumedBanner = document.getElementById("resumedBanner");
     if (resumedBanner) {
+      console.log("[Resume] Showing banner");
       resumedBanner.style.display = "flex";
       // Auto-hide after 5 seconds
       setTimeout(() => {
         resumedBanner.style.display = "none";
       }, 5000);
+    } else {
+      console.warn("[Resume] Banner element not found!");
     }
 
     // Set the host URL
@@ -151,12 +177,13 @@ async function resumeTest(testId) {
     resetCharts();
 
     // Start polling
+    console.log("[Resume] Starting polling...");
     startMetricsPolling();
     startTimeSeriesPolling();
 
-    console.log("Resumed test", testId);
+    console.log("[Resume] ✅ Successfully resumed test", testId);
   } catch (error) {
-    console.error("Error resuming test:", error);
+    console.error("[Resume] ❌ Error resuming test:", error);
     saveTestIdToStorage(null);
     removeTestIdFromURL();
   }
@@ -1276,25 +1303,37 @@ function setupEventDelegation() {
 
 // Initialize charts and load history on page load
 window.addEventListener("DOMContentLoaded", async () => {
+  console.log("[Init] Page loaded, initializing...");
+
   // Initialize DOM cache first
   initDOMCache();
+  console.log("[Init] DOM cache initialized");
 
   initTheme();
   initializeCharts();
+  console.log("[Init] Theme and charts initialized");
 
   // Setup event delegation
   setupEventDelegation();
 
   // Check for running tests and resume if found
+  console.log("[Init] Checking for running tests...");
   const resumed = await checkAndResumeTest();
+  console.log("[Init] Resumed?", resumed);
 
   // Load history
+  console.log("[Init] Loading history...");
   await loadHistory();
 
   // Show CTA if no test is running
   if (!resumed && !currentTestId) {
+    console.log("[Init] Showing CTA");
     domCache.ctaSection.style.display = "block";
+  } else {
+    console.log("[Init] Test active, hiding CTA");
   }
+
+  console.log("[Init] ✅ Initialization complete");
 
   // Update chart colors when theme changes
   const observer = new MutationObserver(() => {
