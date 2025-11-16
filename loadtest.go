@@ -726,36 +726,61 @@ func (tm *TestManager) HandleGetHistoricalMetrics(w http.ResponseWriter, r *http
 }
 
 func buildTimeSeriesFromMetrics(metrics []*RequestMetric, startTime time.Time) []map[string]interface{} {
+	points := buildTimeSeriesPoints(metrics, startTime)
+	timeSeries := make([]map[string]interface{}, 0, len(points))
+	for _, point := range points {
+		timeSeries = append(timeSeries, map[string]interface{}{
+			"timestamp":    point.Timestamp,
+			"requests":     point.Requests,
+			"rps":          point.RPS,
+			"avg_latency":  point.AvgLatency,
+			"success_rate": point.SuccessRate,
+		})
+	}
+	return timeSeries
+}
+
+func buildTimeSeriesPoints(metrics []*RequestMetric, startTime time.Time) []TimeSeriesPoint {
 	if len(metrics) == 0 {
-		return []map[string]interface{}{}
+		return []TimeSeriesPoint{}
 	}
 
-	// Group metrics by second
-	type Bucket struct {
+	type bucket struct {
 		latencies    []float64
 		successCount int
 		totalCount   int
 	}
 
-	buckets := make(map[int]*Bucket)
+	buckets := make(map[int]*bucket)
+	maxOffset := 0
+
 	for _, m := range metrics {
 		secondOffset := int(m.Timestamp.Sub(startTime).Seconds())
-		if _, exists := buckets[secondOffset]; !exists {
-			buckets[secondOffset] = &Bucket{
+		if secondOffset < 0 {
+			secondOffset = 0
+		}
+		if secondOffset > maxOffset {
+			maxOffset = secondOffset
+		}
+
+		b, exists := buckets[secondOffset]
+		if !exists {
+			b = &bucket{
 				latencies: make([]float64, 0),
 			}
+			buckets[secondOffset] = b
 		}
-		bucket := buckets[secondOffset]
-		bucket.latencies = append(bucket.latencies, m.Latency)
-		bucket.totalCount++
+
+		b.latencies = append(b.latencies, m.Latency)
+		b.totalCount++
 		if m.Success {
-			bucket.successCount++
+			b.successCount++
 		}
 	}
 
-	// Convert to time series
-	timeSeries := make([]map[string]interface{}, 0)
-	for second := 0; second <= len(buckets); second++ {
+	points := make([]TimeSeriesPoint, 0, len(buckets))
+
+	for second := 0; second <= maxOffset; second++ {
 		bucket, exists := buckets[second]
 		if !exists {
 			continue
@@ -770,21 +795,21 @@ func buildTimeSeriesFromMetrics(metrics []*RequestMetric, startTime time.Time) [
 			avgLatency = sum / float64(len(bucket.latencies))
 		}
 
-		successRate := float64(0)
+		successRate := 0.0
 		if bucket.totalCount > 0 {
 			successRate = (float64(bucket.successCount) / float64(bucket.totalCount)) * 100
 		}
 
-		timeSeries = append(timeSeries, map[string]interface{}{
-			"timestamp":    startTime.Add(time.Duration(second) * time.Second),
-			"requests":     bucket.totalCount,
-			"rps":          float64(bucket.totalCount),
-			"avg_latency":  avgLatency,
-			"success_rate": successRate,
+		points = append(points, TimeSeriesPoint{
+			Timestamp:   startTime.Add(time.Duration(second) * time.Second),
+			Requests:    int64(bucket.totalCount),
+			RPS:         float64(bucket.totalCount),
+			AvgLatency:  avgLatency,
+			SuccessRate: successRate,
 		})
 	}
 
-	return timeSeries
+	return points
 }
 
 func (tm *TestManager) HandleGetTimeSeries(w http.ResponseWriter, r *http.Request) {
@@ -839,6 +864,13 @@ func (tm *TestManager) HandleGenerateReport(w http.ResponseWriter, r *http.Reque
 		timeSeries = make([]TimeSeriesPoint, len(testCtx.Metrics.TimeSeries))
 		copy(timeSeries, testCtx.Metrics.TimeSeries)
 		testCtx.Metrics.mu.RUnlock()
+	} else {
+		historicalMetrics, err := GetRequestMetrics(tm.db, testID)
+		if err == nil {
+			timeSeries = buildTimeSeriesPoints(historicalMetrics, testRun.StartedAt)
+		} else {
+			log.Printf("failed to load historical time series for test %d: %v", testID, err)
+		}
 	}
 
 	// Generate PDF
