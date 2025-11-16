@@ -271,7 +271,7 @@ func (tm *TestManager) runLoadTest(ctx context.Context, testCtx *TestContext) {
 							return
 						default:
 							wg.Add(1)
-							go tm.runUser(ctx, testRun.Host, metrics, &wg, stopChan, authConfig)
+							go tm.runUser(ctx, testRun.ID, testRun.Host, metrics, &wg, stopChan, authConfig)
 							usersStarted++
 						}
 					}
@@ -288,7 +288,7 @@ func (tm *TestManager) runLoadTest(ctx context.Context, testCtx *TestContext) {
 							return
 						default:
 							wg.Add(1)
-							go tm.runUser(ctx, testRun.Host, metrics, &wg, stopChan, authConfig)
+							go tm.runUser(ctx, testRun.ID, testRun.Host, metrics, &wg, stopChan, authConfig)
 							usersStarted++
 						}
 					}
@@ -314,7 +314,7 @@ func (tm *TestManager) runLoadTest(ctx context.Context, testCtx *TestContext) {
 	tm.calculateAndSaveMetrics(testCtx)
 }
 
-func (tm *TestManager) runUser(ctx context.Context, host string, metrics *MetricsCollector, wg *sync.WaitGroup, stopChan <-chan struct{}, authConfig *AuthConfig) {
+func (tm *TestManager) runUser(ctx context.Context, testRunID int64, host string, metrics *MetricsCollector, wg *sync.WaitGroup, stopChan <-chan struct{}, authConfig *AuthConfig) {
 	defer wg.Done()
 
 	client := &http.Client{
@@ -347,7 +347,8 @@ func (tm *TestManager) runUser(ctx context.Context, host string, metrics *Metric
 			applyAuth(req, authConfig)
 
 			resp, err := client.Do(req)
-			latency := time.Since(start).Seconds() * 1000 // Convert to milliseconds
+			completedAt := time.Now()
+			latency := completedAt.Sub(start).Seconds() * 1000 // Convert to milliseconds
 
 			success := err == nil && resp != nil && resp.StatusCode < 400
 			statusCode := 0
@@ -358,6 +359,17 @@ func (tm *TestManager) runUser(ctx context.Context, host string, metrics *Metric
 			}
 
 			metrics.Record(latency, success, statusCode)
+
+			metric := &RequestMetric{
+				TestRunID:  testRunID,
+				Timestamp:  completedAt,
+				Latency:    latency,
+				Success:    success,
+				StatusCode: statusCode,
+			}
+			if err := SaveRequestMetric(tm.db, metric); err != nil {
+				log.Printf("Failed to save request metric: %v", err)
+			}
 		}
 	}
 }

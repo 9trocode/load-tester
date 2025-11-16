@@ -365,7 +365,7 @@ document.getElementById("testForm").addEventListener("submit", async (e) => {
     currentTestId = data.test_id;
 
     // Store host for display
-    document.getElementById("currentHostUrl").textContent = host;
+    document.getElementById("currentHostUrl").textContent = maskUrl(host);
 
     closeTestModal();
     document.getElementById("ctaSection").style.display = "none";
@@ -618,7 +618,7 @@ function displayHistory(history) {
                 </div>
             </div>
             <div class="history-item-actions">
-                <button class="btn btn-secondary btn-sm" onclick="toggleAdvancedView(${test.id})">
+                <button class="btn btn-secondary btn-sm" onclick="toggleAdvancedView(this, ${test.id})">
                     Advanced View
                 </button>
                 <button class="btn btn-secondary btn-sm" onclick="downloadReport(${test.id})">
@@ -634,9 +634,8 @@ function displayHistory(history) {
     .join("");
 }
 
-async function toggleAdvancedView(testId) {
+async function toggleAdvancedView(button, testId) {
   const advancedView = document.getElementById(`advanced-view-${testId}`);
-  const button = event.target;
 
   if (expandedHistoryItems.has(testId)) {
     // Collapse
