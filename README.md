@@ -53,16 +53,6 @@ CGO_ENABLED=1 go build -o load-tester .
 
 ## Deployment
 
-### Railway (Recommended)
-
-The easiest way to deploy is using Railway:
-
-1. Push your code to GitHub
-2. Go to [railway.app](https://railway.app)
-3. Click "New Project" → "Deploy from GitHub repo"
-4. Select your repository
-5. Railway automatically detects `nixpacks.toml` and deploys with CGO enabled
-
 ### Docker
 
 **Quick Start (Debian-based - Recommended):**
