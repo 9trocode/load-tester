@@ -245,6 +245,20 @@ function initDOMCache() {
   domCache.errorRate = document.getElementById("errorRate");
   domCache.totalErrors = document.getElementById("totalErrors");
   domCache.avgRPS = document.getElementById("avgRPS");
+
+  // Validate critical elements exist
+  const missingElements = [];
+  Object.keys(domCache).forEach((key) => {
+    if (!domCache[key]) {
+      missingElements.push(key);
+    }
+  });
+
+  if (missingElements.length > 0) {
+    console.error("[DOM Cache] Missing elements:", missingElements);
+  } else {
+    console.log("[DOM Cache] ✅ All elements found");
+  }
 }
 
 // Throttle function for performance
@@ -523,87 +537,106 @@ function getChartOptions(yAxisLabel = "", yAxisUnit = "", maxValue = null) {
 }
 
 function initializeCharts() {
-  // Throughput Chart
-  const throughputCtx = document
-    .getElementById("throughputChart")
-    .getContext("2d");
-  throughputChart = new Chart(throughputCtx, {
-    type: "line",
-    data: {
-      labels: [],
-      datasets: [
-        {
-          label: "Throughput",
-          data: [],
-          borderColor: "rgb(59, 130, 246)",
-          backgroundColor: "rgba(59, 130, 246, 0.1)",
-          tension: 0.4,
-          fill: true,
-          borderWidth: 2.5,
-          pointRadius: 0,
-          pointHoverRadius: 5,
-          pointHoverBackgroundColor: "rgb(59, 130, 246)",
-          pointHoverBorderColor: "#fff",
-          pointHoverBorderWidth: 2,
-        },
-      ],
-    },
-    options: getChartOptions("Requests per Second", "req/s"),
-  });
+  console.log("[Charts] Initializing charts...");
 
-  // Latency Chart
-  const latencyCtx = document.getElementById("latencyChart").getContext("2d");
-  latencyChart = new Chart(latencyCtx, {
-    type: "line",
-    data: {
-      labels: [],
-      datasets: [
-        {
-          label: "Response Time",
-          data: [],
-          borderColor: "rgb(239, 68, 68)",
-          backgroundColor: "rgba(239, 68, 68, 0.1)",
-          tension: 0.4,
-          fill: true,
-          borderWidth: 2.5,
-          pointRadius: 0,
-          pointHoverRadius: 5,
-          pointHoverBackgroundColor: "rgb(239, 68, 68)",
-          pointHoverBorderColor: "#fff",
-          pointHoverBorderWidth: 2,
-        },
-      ],
-    },
-    options: getChartOptions("Average Latency", "ms"),
-  });
+  try {
+    // Throughput Chart
+    const throughputCanvas = document.getElementById("throughputChart");
+    if (!throughputCanvas) {
+      console.error("[Charts] Throughput chart canvas not found!");
+      return;
+    }
+    const throughputCtx = throughputCanvas.getContext("2d");
+    throughputChart = new Chart(throughputCtx, {
+      type: "line",
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: "Requests/sec",
+            data: [],
+            borderColor: "rgb(59, 130, 246)",
+            backgroundColor: "rgba(59, 130, 246, 0.1)",
+            tension: 0.4,
+            fill: true,
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 6,
+            pointHoverBackgroundColor: "rgb(59, 130, 246)",
+            pointHoverBorderColor: "#fff",
+            pointHoverBorderWidth: 2,
+          },
+        ],
+      },
+      options: getChartOptions("Throughput", "req/s"),
+    });
 
-  // Success Rate Chart
-  const successRateCtx = document
-    .getElementById("successRateChart")
-    .getContext("2d");
-  successRateChart = new Chart(successRateCtx, {
-    type: "line",
-    data: {
-      labels: [],
-      datasets: [
-        {
-          label: "Success Rate",
-          data: [],
-          borderColor: "rgb(16, 185, 129)",
-          backgroundColor: "rgba(16, 185, 129, 0.1)",
-          tension: 0.4,
-          fill: true,
-          borderWidth: 2.5,
-          pointRadius: 0,
-          pointHoverRadius: 5,
-          pointHoverBackgroundColor: "rgb(16, 185, 129)",
-          pointHoverBorderColor: "#fff",
-          pointHoverBorderWidth: 2,
-        },
-      ],
-    },
-    options: getChartOptions("Success Rate", "%", 100),
-  });
+    // Latency Chart
+    const latencyCanvas = document.getElementById("latencyChart");
+    if (!latencyCanvas) {
+      console.error("[Charts] Latency chart canvas not found!");
+      return;
+    }
+    const latencyCtx = latencyCanvas.getContext("2d");
+    latencyChart = new Chart(latencyCtx, {
+      type: "line",
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: "Latency (ms)",
+            data: [],
+            borderColor: "rgb(16, 185, 129)",
+            backgroundColor: "rgba(16, 185, 129, 0.1)",
+            tension: 0.4,
+            fill: true,
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 6,
+            pointHoverBackgroundColor: "rgb(16, 185, 129)",
+            pointHoverBorderColor: "#fff",
+            pointHoverBorderWidth: 2,
+          },
+        ],
+      },
+      options: getChartOptions("Response Time", "ms"),
+    });
+
+    // Success Rate Chart
+    const successRateCanvas = document.getElementById("successRateChart");
+    if (!successRateCanvas) {
+      console.error("[Charts] Success rate chart canvas not found!");
+      return;
+    }
+    const successRateCtx = successRateCanvas.getContext("2d");
+    successRateChart = new Chart(successRateCtx, {
+      type: "line",
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: "Success Rate (%)",
+            data: [],
+            borderColor: "rgb(139, 92, 246)",
+            backgroundColor: "rgba(139, 92, 246, 0.1)",
+            tension: 0.4,
+            fill: true,
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 6,
+            pointHoverBackgroundColor: "rgb(139, 92, 246)",
+            pointHoverBorderColor: "#fff",
+            pointHoverBorderWidth: 2,
+          },
+        ],
+      },
+      options: getChartOptions("Success Rate", "%", 100),
+    });
+
+    console.log("[Charts] ✅ All charts initialized successfully");
+  } catch (error) {
+    console.error("[Charts] Error initializing charts:", error);
+  }
 }
 
 // Event listeners
@@ -754,32 +787,69 @@ function resetCharts() {
 }
 
 function startMetricsPolling() {
+  console.log("[Polling] Starting metrics polling for test:", currentTestId);
+
   if (metricsInterval) {
     clearInterval(metricsInterval);
   }
 
+  // Show last updated indicator
+  const lastUpdatedEl = document.getElementById("lastUpdated");
+  if (lastUpdatedEl) {
+    lastUpdatedEl.style.display = "block";
+  }
+
   metricsInterval = setInterval(async () => {
-    if (!currentTestId) return;
+    if (!currentTestId) {
+      console.warn("[Polling] No current test ID, stopping polling");
+      return;
+    }
 
     try {
+      console.log("[Polling] Fetching metrics for:", currentTestId);
       const response = await fetch(`/api/metrics/${currentTestId}`);
+
       if (!response.ok) {
+        console.error(
+          "[Polling] Failed to fetch metrics:",
+          response.status,
+          response.statusText,
+        );
         stopMetricsPolling();
         return;
       }
 
       const metrics = await response.json();
+      console.log("[Polling] Received metrics:", {
+        total_requests: metrics.total_requests,
+        rps: metrics.rps,
+        is_running: metrics.is_running,
+      });
+
       updateMetrics(metrics);
 
       if (!metrics.is_running) {
+        console.log("[Polling] Test completed, stopping polling");
         stopMetricsPolling();
         stopTimeSeriesPolling();
-        domCache.ctaSection.style.display = "block";
-        domCache.metricsSection.style.display = "none";
+
+        // Hide last updated indicator
+        const lastUpdatedEl = document.getElementById("lastUpdated");
+        if (lastUpdatedEl) {
+          lastUpdatedEl.style.display = "none";
+        }
+
+        if (domCache.ctaSection) domCache.ctaSection.style.display = "block";
+        if (domCache.metricsSection)
+          domCache.metricsSection.style.display = "none";
+
         // Only show history if not on a test-specific page
-        domCache.historySection.style.display = isOnTestPage()
-          ? "none"
-          : "block";
+        if (domCache.historySection) {
+          domCache.historySection.style.display = isOnTestPage()
+            ? "none"
+            : "block";
+        }
+
         currentTestId = null;
         testStartTime = null;
         testDurationSeconds = null;
@@ -790,12 +860,17 @@ function startMetricsPolling() {
         loadHistory();
       }
     } catch (error) {
-      console.error("Error fetching metrics:", error);
+      console.error("[Polling] Error fetching metrics:", error);
     }
   }, 1000);
 }
 
 function startTimeSeriesPolling() {
+  console.log(
+    "[Polling] Starting time series polling for test:",
+    currentTestId,
+  );
+
   if (timeSeriesInterval) {
     clearInterval(timeSeriesInterval);
   }
@@ -806,13 +881,21 @@ function startTimeSeriesPolling() {
     try {
       const response = await fetch(`/api/timeseries/${currentTestId}`);
       if (!response.ok) {
+        console.error(
+          "[Polling] Failed to fetch time series:",
+          response.status,
+        );
         return;
       }
 
       const timeSeries = await response.json();
+      console.log(
+        "[Polling] Received time series data points:",
+        timeSeries.length,
+      );
       updateCharts(timeSeries);
     } catch (error) {
-      console.error("Error fetching time series:", error);
+      console.error("[Polling] Error fetching time series:", error);
     }
   }, 2000);
 }
@@ -833,6 +916,26 @@ function stopMetricsPolling() {
 
 // Throttled update for better performance
 const updateMetricsThrottled = throttle(function (metrics) {
+  if (!metrics) {
+    console.error("[Metrics] No metrics data received");
+    return;
+  }
+
+  console.log("[Metrics] Updating with data:", {
+    total_requests: metrics.total_requests,
+    rps: metrics.rps,
+    is_running: metrics.is_running,
+  });
+
+  // Update last updated timestamp
+  const lastUpdatedEl = document.getElementById("lastUpdated");
+  const lastUpdatedTimeEl = document.getElementById("lastUpdatedTime");
+  if (lastUpdatedEl && lastUpdatedTimeEl) {
+    lastUpdatedEl.style.display = "block";
+    const now = new Date();
+    lastUpdatedTimeEl.textContent = now.toLocaleTimeString();
+  }
+
   // Update live overview (elapsed time, remaining time, progress)
   if (testStartTime && testDurationSeconds) {
     const elapsedSeconds = Math.floor((Date.now() - testStartTime) / 1000);
@@ -842,74 +945,114 @@ const updateMetricsThrottled = throttle(function (metrics) {
       (elapsedSeconds / testDurationSeconds) * 100,
     );
 
-    domCache.elapsedTime.textContent = formatTime(elapsedSeconds);
-    domCache.remainingTime.textContent = formatTime(remainingSeconds);
-    domCache.progressPercentage.textContent = progressPercent.toFixed(1) + "%";
-    domCache.progressBarFill.style.width = progressPercent + "%";
+    if (domCache.elapsedTime) {
+      domCache.elapsedTime.textContent = formatTime(elapsedSeconds);
+    }
+    if (domCache.remainingTime) {
+      domCache.remainingTime.textContent = formatTime(remainingSeconds);
+    }
+    if (domCache.progressPercentage) {
+      domCache.progressPercentage.textContent =
+        progressPercent.toFixed(1) + "%";
+    }
+    if (domCache.progressBarFill) {
+      domCache.progressBarFill.style.width = progressPercent + "%";
+    }
   }
 
   // Batch DOM updates
   requestAnimationFrame(() => {
-    // Basic metrics
-    domCache.totalRequests.textContent =
-      metrics.total_requests.toLocaleString();
+    try {
+      // Basic metrics with null checks
+      if (domCache.totalRequests) {
+        domCache.totalRequests.textContent = (
+          metrics.total_requests || 0
+        ).toLocaleString();
+      }
 
-    const successRate =
-      metrics.total_requests > 0
-        ? ((metrics.success_count / metrics.total_requests) * 100).toFixed(1)
-        : 0;
-    domCache.successRate.textContent = successRate + "%";
+      const successRate =
+        metrics.total_requests > 0
+          ? ((metrics.success_count / metrics.total_requests) * 100).toFixed(1)
+          : 0;
+      if (domCache.successRate) {
+        domCache.successRate.textContent = successRate + "%";
+      }
 
-    domCache.rps.textContent =
-      metrics.rps.toLocaleString("en-US", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }) + " req/s";
-    domCache.avgLatency.textContent =
-      metrics.avg_latency.toLocaleString("en-US", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }) + " ms";
-    domCache.minLatency.textContent =
-      metrics.min_latency.toLocaleString("en-US", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }) + " ms";
-    domCache.maxLatency.textContent =
-      metrics.max_latency.toLocaleString("en-US", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }) + " ms";
+      if (domCache.rps) {
+        domCache.rps.textContent =
+          (metrics.rps || 0).toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }) + " req/s";
+      }
+      if (domCache.avgLatency) {
+        domCache.avgLatency.textContent =
+          (metrics.avg_latency || 0).toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }) + " ms";
+      }
+      if (domCache.minLatency) {
+        domCache.minLatency.textContent =
+          (metrics.min_latency || 0).toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }) + " ms";
+      }
+      if (domCache.maxLatency) {
+        domCache.maxLatency.textContent =
+          (metrics.max_latency || 0).toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }) + " ms";
+      }
 
-    // Advanced metrics
-    domCache.p50Latency.textContent =
-      (metrics.p50_latency || 0).toLocaleString("en-US", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }) + " ms";
-    domCache.p95Latency.textContent =
-      (metrics.p95_latency || 0).toLocaleString("en-US", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }) + " ms";
-    domCache.p99Latency.textContent =
-      (metrics.p99_latency || 0).toLocaleString("en-US", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }) + " ms";
-    domCache.errorRate.textContent =
-      (metrics.error_rate || 0).toLocaleString("en-US", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }) + "%";
-    domCache.totalErrors.textContent = (
-      metrics.error_count || 0
-    ).toLocaleString();
-    domCache.avgRPS.textContent =
-      (metrics.avg_rps || 0).toLocaleString("en-US", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }) + " req/s";
+      // Advanced metrics
+      if (domCache.p50Latency) {
+        domCache.p50Latency.textContent =
+          (metrics.p50_latency || 0).toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }) + " ms";
+      }
+      if (domCache.p95Latency) {
+        domCache.p95Latency.textContent =
+          (metrics.p95_latency || 0).toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }) + " ms";
+      }
+      if (domCache.p99Latency) {
+        domCache.p99Latency.textContent =
+          (metrics.p99_latency || 0).toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }) + " ms";
+      }
+      if (domCache.errorRate) {
+        domCache.errorRate.textContent =
+          (metrics.error_rate || 0).toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }) + "%";
+      }
+      if (domCache.totalErrors) {
+        domCache.totalErrors.textContent = (
+          metrics.error_count || 0
+        ).toLocaleString();
+      }
+      if (domCache.avgRPS) {
+        domCache.avgRPS.textContent =
+          (metrics.avg_rps || 0).toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }) + " req/s";
+      }
+
+      console.log("[Metrics] ✅ DOM updated successfully");
+    } catch (error) {
+      console.error("[Metrics] Error updating DOM:", error);
+    }
   });
 }, 100); // Throttle to max 10 updates per second
 
@@ -928,7 +1071,12 @@ function formatTime(seconds) {
 
 // Throttled chart updates
 const updateChartsThrottled = throttle(function (timeSeries) {
-  if (!timeSeries || timeSeries.length === 0) return;
+  if (!timeSeries || timeSeries.length === 0) {
+    console.log("[Charts] No time series data to display");
+    return;
+  }
+
+  console.log("[Charts] Updating with", timeSeries.length, "data points");
 
   const recentData = timeSeries.slice(-60);
 
@@ -950,22 +1098,34 @@ const updateChartsThrottled = throttle(function (timeSeries) {
 
   // Batch chart updates
   requestAnimationFrame(() => {
-    if (throughputChart) {
-      throughputChart.data.labels = labels;
-      throughputChart.data.datasets[0].data = rpsData;
-      throughputChart.update("none");
-    }
+    try {
+      if (throughputChart) {
+        throughputChart.data.labels = labels;
+        throughputChart.data.datasets[0].data = rpsData;
+        throughputChart.update("none");
+      } else {
+        console.warn("[Charts] Throughput chart not initialized");
+      }
 
-    if (latencyChart) {
-      latencyChart.data.labels = labels;
-      latencyChart.data.datasets[0].data = latencyData;
-      latencyChart.update("none");
-    }
+      if (latencyChart) {
+        latencyChart.data.labels = labels;
+        latencyChart.data.datasets[0].data = latencyData;
+        latencyChart.update("none");
+      } else {
+        console.warn("[Charts] Latency chart not initialized");
+      }
 
-    if (successRateChart) {
-      successRateChart.data.labels = labels;
-      successRateChart.data.datasets[0].data = successRateData;
-      successRateChart.update("none");
+      if (successRateChart) {
+        successRateChart.data.labels = labels;
+        successRateChart.data.datasets[0].data = successRateData;
+        successRateChart.update("none");
+      } else {
+        console.warn("[Charts] Success rate chart not initialized");
+      }
+
+      console.log("[Charts] ✅ Charts updated successfully");
+    } catch (error) {
+      console.error("[Charts] Error updating charts:", error);
     }
   });
 }, 500); // Throttle to max 2 updates per second
