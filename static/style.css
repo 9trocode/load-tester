@@ -1332,19 +1332,51 @@ label input[type="checkbox"] + span {
 .action-buttons-container {
     margin-top: 1.5rem;
     padding-top: 1.5rem;
-    border-top: 1px solid var(--pipeops-border);
+    border-top: 2px solid var(--pipeops-border);
     background: var(--pipeops-surface);
+    position: relative;
+    z-index: 100;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
 }
 
 [data-theme="dark"] .action-buttons-container {
     background: var(--pipeops-surface);
     box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
+    border-top-color: var(--pipeops-border);
 }
 
 /* Enhanced form actions alignment */
 .action-buttons-container .form-actions {
-    display: flex;
+    display: flex !important;
     gap: 0.75rem;
     justify-content: flex-end;
     align-items: center;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* Ensure buttons are never hidden */
+.action-buttons-container .btn {
+    display: inline-flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* Visual emphasis for action buttons */
+.action-buttons-container {
+    background: linear-gradient(
+        to top,
+        var(--pipeops-surface) 0%,
+        var(--pipeops-surface) 100%
+    );
+}
+
+[data-theme="dark"] .action-buttons-container {
+    background: linear-gradient(
+        to top,
+        rgba(19, 23, 32, 0.95) 0%,
+        rgba(19, 23, 32, 0.8) 100%
+    );
 }

@@ -17,7 +17,7 @@
                 }
             }
         </script>
-        <link rel="stylesheet" href="/static/style.css?v=7" />
+        <link rel="stylesheet" href="/static/style.css?v=8" />
         <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     </head>
     <body>
@@ -612,9 +612,17 @@
                         </div>
                         <!-- End Advanced Options Container -->
 
-                        <!-- Action Buttons - Always Visible -->
+                        <!--
+                        ═══════════════════════════════════════════════════════════
+                        ACTION BUTTONS - ALWAYS VISIBLE
+                        These buttons are OUTSIDE the Advanced Options container
+                        They remain visible whether Advanced Options are:
+                        - Collapsed (default)
+                        - Expanded (after clicking toggle)
+                        ═══════════════════════════════════════════════════════════
+                        -->
                         <div class="action-buttons-container">
-                        <div class="form-actions">
+                            <div class="form-actions">
                             <button
                                 type="button"
                                 class="btn btn-secondary"
@@ -629,9 +637,13 @@
                             >
                                 Start Test
                             </button>
+                            </div>
                         </div>
-                        </div>
-                        <!-- End Action Buttons Section -->
+                        <!--
+                        ═══════════════════════════════════════════════════════════
+                        End Action Buttons - Always Visible
+                        ═══════════════════════════════════════════════════════════
+                        -->
                     </form>
                 </div>
             </div>
