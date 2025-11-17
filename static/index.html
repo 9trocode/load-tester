@@ -7,17 +7,17 @@
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
             tailwind.config = {
-                darkMode: 'class',
+                darkMode: "class",
                 theme: {
                     extend: {
                         colors: {
-                            primary: '#3b82f6',
-                        }
-                    }
-                }
-            }
+                            primary: "#3b82f6",
+                        },
+                    },
+                },
+            };
         </script>
-        <link rel="stylesheet" href="/static/style.css?v=9" />
+        <link rel="stylesheet" href="/static/style.css?v=10" />
         <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     </head>
     <body>
@@ -392,19 +392,23 @@
                         </div>
 
                         <!-- Advanced Options Toggle -->
-                        <div style="margin-bottom: 1.5rem;">
+                        <div style="margin-bottom: 1.5rem">
                             <button
                                 type="button"
                                 id="advancedToggle"
                                 class="w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all duration-200"
                                 onclick="toggleAdvancedOptions()"
-                                style="background: var(--pipeops-surface); border: 1px solid var(--pipeops-border); cursor: pointer;"
+                                style="
+                                    background: var(--pipeops-surface);
+                                    border: 1px solid var(--pipeops-border);
+                                    cursor: pointer;
+                                "
                                 onmouseover="this.style.background='var(--pipeops-surface-elevated, #1a1f2e)'"
                                 onmouseout="this.style.background='var(--pipeops-surface)'"
                             >
                                 <span
                                     class="flex items-center gap-2 text-sm font-medium"
-                                    style="color: var(--pipeops-text);"
+                                    style="color: var(--pipeops-text)"
                                 >
                                     <svg
                                         id="advancedChevron"
@@ -412,7 +416,7 @@
                                         fill="none"
                                         stroke="currentColor"
                                         viewBox="0 0 24 24"
-                                        style="color: var(--pipeops-primary);"
+                                        style="color: var(--pipeops-primary)"
                                     >
                                         <path
                                             stroke-linecap="round"
@@ -423,7 +427,9 @@
                                     </svg>
                                     Advanced Options
                                 </span>
-                                <span class="text-xs" style="color: var(--pipeops-text-light);"
+                                <span
+                                    class="text-xs"
+                                    style="color: var(--pipeops-text-light)"
                                     >Request Config & Auth</span
                                 >
                             </button>
@@ -497,118 +503,125 @@
                                             class="input textarea"
                                         ></textarea>
                                         <div class="form-hint">
-                                            JSON object with header key-value pairs
+                                            JSON object with header key-value
+                                            pairs
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                        <!-- Authentication Section -->
-                        <div class="auth-section">
-                            <h3 class="section-header">
-                                <span class="section-icon"></span>
-                                Authentication
-                            </h3>
-                            <div class="form-field">
-                                <label>
-                                    <input
-                                        type="checkbox"
-                                        id="enableAuth"
-                                        class="checkbox"
-                                    />
-                                    <span>Enable Authentication</span>
-                                </label>
-                            </div>
-
-                            <div id="authConfig" style="display: none">
+                            <!-- Authentication Section -->
+                            <div class="auth-section">
+                                <h3 class="section-header">
+                                    <span class="section-icon"></span>
+                                    Authentication
+                                </h3>
                                 <div class="form-field">
-                                    <label for="authType"
-                                        >Authentication Type</label
+                                    <label>
+                                        <input
+                                            type="checkbox"
+                                            id="enableAuth"
+                                            class="checkbox"
+                                        />
+                                        <span>Enable Authentication</span>
+                                    </label>
+                                </div>
+
+                                <div id="authConfig" style="display: none">
+                                    <div class="form-field">
+                                        <label for="authType"
+                                            >Authentication Type</label
+                                        >
+                                        <select id="authType" class="input">
+                                            <option value="jwt">
+                                                JWT Token
+                                            </option>
+                                            <option value="basic">
+                                                Basic Auth
+                                            </option>
+                                            <option value="header">
+                                                Custom Header
+                                            </option>
+                                        </select>
+                                    </div>
+
+                                    <!-- JWT Auth -->
+                                    <div id="jwtAuth" class="auth-type-config">
+                                        <div class="form-field">
+                                            <label for="jwtToken"
+                                                >JWT Token</label
+                                            >
+                                            <input
+                                                type="text"
+                                                id="jwtToken"
+                                                class="input"
+                                                placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <!-- Basic Auth -->
+                                    <div
+                                        id="basicAuth"
+                                        class="auth-type-config"
+                                        style="display: none"
                                     >
-                                    <select id="authType" class="input">
-                                        <option value="jwt">JWT Token</option>
-                                        <option value="basic">
-                                            Basic Auth
-                                        </option>
-                                        <option value="header">
-                                            Custom Header
-                                        </option>
-                                    </select>
-                                </div>
+                                        <div class="form-field">
+                                            <label for="basicUsername"
+                                                >Username</label
+                                            >
+                                            <input
+                                                type="text"
+                                                id="basicUsername"
+                                                class="input"
+                                                placeholder="username"
+                                            />
+                                        </div>
+                                        <div class="form-field">
+                                            <label for="basicPassword"
+                                                >Password</label
+                                            >
+                                            <input
+                                                type="password"
+                                                id="basicPassword"
+                                                class="input"
+                                                placeholder="password"
+                                            />
+                                        </div>
+                                    </div>
 
-                                <!-- JWT Auth -->
-                                <div id="jwtAuth" class="auth-type-config">
-                                    <div class="form-field">
-                                        <label for="jwtToken">JWT Token</label>
-                                        <input
-                                            type="text"
-                                            id="jwtToken"
-                                            class="input"
-                                            placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                                        />
-                                    </div>
-                                </div>
-
-                                <!-- Basic Auth -->
-                                <div
-                                    id="basicAuth"
-                                    class="auth-type-config"
-                                    style="display: none"
-                                >
-                                    <div class="form-field">
-                                        <label for="basicUsername"
-                                            >Username</label
-                                        >
-                                        <input
-                                            type="text"
-                                            id="basicUsername"
-                                            class="input"
-                                            placeholder="username"
-                                        />
-                                    </div>
-                                    <div class="form-field">
-                                        <label for="basicPassword"
-                                            >Password</label
-                                        >
-                                        <input
-                                            type="password"
-                                            id="basicPassword"
-                                            class="input"
-                                            placeholder="password"
-                                        />
-                                    </div>
-                                </div>
-
-                                <!-- Custom Header Auth -->
-                                <div
-                                    id="headerAuth"
-                                    class="auth-type-config"
-                                    style="display: none"
-                                >
-                                    <div class="form-field">
-                                        <label for="headerName"
-                                            >Header Name</label
-                                        >
-                                        <input
-                                            type="text"
-                                            id="headerName"
-                                            class="input"
-                                            placeholder="X-API-Key"
-                                        />
-                                    </div>
-                                    <div class="form-field">
-                                        <label for="headerValue"
-                                            >Header Value</label
-                                        >
-                                        <input
-                                            type="text"
-                                            id="headerValue"
-                                            class="input"
-                                            placeholder="your-api-key"
-                                        />
+                                    <!-- Custom Header Auth -->
+                                    <div
+                                        id="headerAuth"
+                                        class="auth-type-config"
+                                        style="display: none"
+                                    >
+                                        <div class="form-field">
+                                            <label for="headerName"
+                                                >Header Name</label
+                                            >
+                                            <input
+                                                type="text"
+                                                id="headerName"
+                                                class="input"
+                                                placeholder="X-API-Key"
+                                            />
+                                        </div>
+                                        <div class="form-field">
+                                            <label for="headerValue"
+                                                >Header Value</label
+                                            >
+                                            <input
+                                                type="text"
+                                                id="headerValue"
+                                                class="input"
+                                                placeholder="your-api-key"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             </div>
+                        </div>
                         </div>
                         <!-- End Advanced Options Container -->
 
@@ -640,6 +653,6 @@
             </div>
         </div>
 
-        <script src="/static/app.js?v=8"></script>
+        <script src="/static/app.js?v=10"></script>
     </body>
 </html>
