@@ -1327,3 +1327,24 @@ label input[type="checkbox"] + span {
 #advancedOptions .request-config-section {
     margin-bottom: 1rem;
 }
+
+/* Action Buttons Section - Always Visible */
+.action-buttons-container {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--pipeops-border);
+    background: var(--pipeops-surface);
+}
+
+[data-theme="dark"] .action-buttons-container {
+    background: var(--pipeops-surface);
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Enhanced form actions alignment */
+.action-buttons-container .form-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+    align-items: center;
+}
