@@ -273,40 +273,109 @@ function throttle(func, delay) {
   };
 }
 
-// URL masking function - completely masks URLs showing only protocol and domain
-function maskUrl(url) {
+// URL masking configuration
+const URL_MASK_LEVEL = {
+  FULL: "full", // Show everything (no masking)
+  DOMAIN: "domain", // Show only protocol and domain
+  PARTIAL: "partial", // Mask subdomains, show TLD
+  MINIMAL: "minimal", // Show only TLD
+  HIDDEN: "hidden", // Show nothing (just asterisks)
+};
+
+// Current masking level (change this to adjust privacy)
+const CURRENT_MASK_LEVEL = URL_MASK_LEVEL.DOMAIN;
+
+// URL masking function with configurable privacy levels
+function maskUrl(url, maskLevel = CURRENT_MASK_LEVEL) {
   if (!url) return "-";
 
   url = url.trim();
 
-  // Try to parse as full URL first
+  // Parse URL
+  let urlObj;
   try {
-    const urlObj = new URL(url);
-    const hostname = urlObj.hostname;
-    const protocol = urlObj.protocol;
-
-    // Completely mask everything after hostname
-    return `${protocol}//${hostname}`;
+    urlObj = new URL(url);
   } catch (e) {
-    // If URL parsing fails, try to extract hostname manually
-    // Handle cases like "192.168.1.1:8080" or "api.example.com"
-
-    // Check if it contains :// (protocol)
-    if (url.includes("://")) {
-      const parts = url.split("://");
-      if (parts.length === 2) {
-        const hostPart = parts[1];
-        // Extract just the hostname (before first / or ? or :)
-        const hostOnly = hostPart.split("/")[0].split("?")[0].split(":")[0];
-        return `${parts[0]}//${hostOnly}`;
-      }
+    // Try adding protocol if missing
+    try {
+      urlObj = new URL("http://" + url);
+    } catch (e2) {
+      // If all parsing fails, return masked placeholder
+      return maskLevel === URL_MASK_LEVEL.FULL ? url : "***";
     }
-
-    // No protocol - might be IP:port or hostname:port or just hostname
-    // Extract just the hostname/IP (before any / or ? or :)
-    const hostOnly = url.split("/")[0].split("?")[0].split(":")[0];
-    return hostOnly;
   }
+
+  const protocol = urlObj.protocol;
+  const hostname = urlObj.hostname;
+  const port = urlObj.port ? `:${urlObj.port}` : "";
+  const pathname = urlObj.pathname;
+  const search = urlObj.search;
+
+  // Apply masking based on level
+  switch (maskLevel) {
+    case URL_MASK_LEVEL.FULL:
+      // Show everything
+      return url;
+
+    case URL_MASK_LEVEL.DOMAIN:
+      // Show protocol and full domain only (default for publishing)
+      return `${protocol}//${hostname}${port}`;
+
+    case URL_MASK_LEVEL.PARTIAL:
+      // Mask subdomains, show only main domain and TLD
+      const parts = hostname.split(".");
+      if (parts.length > 2) {
+        // Has subdomains: api.example.com -> ***.example.com
+        const mainDomain = parts.slice(-2).join(".");
+        return `${protocol}//***${port ? ":" + port.replace(/:\d+/, ":***") : ""}/${mainDomain}`;
+      } else {
+        // No subdomains: example.com -> example.com
+        return `${protocol}//${hostname}${port}`;
+      }
+
+    case URL_MASK_LEVEL.MINIMAL:
+      // Show only top-level domain
+      const domainParts = hostname.split(".");
+      const tld = domainParts[domainParts.length - 1];
+      return `${protocol}//***${port ? ":***" : ""}.${tld}`;
+
+    case URL_MASK_LEVEL.HIDDEN:
+      // Hide everything
+      return "***://***";
+
+    default:
+      // Fallback to DOMAIN level
+      return `${protocol}//${hostname}${port}`;
+  }
+}
+
+// Additional masking utilities
+function maskIP(ip) {
+  if (!ip) return "-";
+  // Mask IP addresses: 192.168.1.1 -> ***.***.***.***
+  const parts = ip.split(".");
+  if (parts.length === 4) {
+    return parts.map(() => "***").join(".");
+  }
+  return "***";
+}
+
+function maskEmail(email) {
+  if (!email) return "-";
+  // Mask email: user@example.com -> u***@example.com
+  const parts = email.split("@");
+  if (parts.length === 2) {
+    const username = parts[0];
+    const domain = parts[1];
+    const maskedUsername =
+      username.length > 2
+        ? username[0] + "***"
+        : username.length > 0
+          ? username[0] + "***"
+          : "***";
+    return `${maskedUsername}@${domain}`;
+  }
+  return "***@***";
 }
 
 // Generate test summary text
