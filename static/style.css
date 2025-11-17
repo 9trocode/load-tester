@@ -245,13 +245,15 @@ body {
     color: var(--pipeops-text);
     transition: all 0.15s;
     font-family: inherit;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .textarea {
-    font-family: "Courier New", Courier, monospace;
     resize: vertical;
-    min-height: 80px;
+    min-height: 60px;
     line-height: 1.5;
+    max-width: 100%;
 }
 
 [data-theme="dark"] .input,
@@ -898,7 +900,8 @@ select:focus {
     border-radius: 8px;
     max-width: 600px;
     width: 90%;
-    max-height: 90vh;
+    max-height: 85vh;
+    height: auto;
     display: flex;
     flex-direction: column;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
@@ -948,10 +951,11 @@ select:focus {
 .modal-body {
     padding: 1.25rem;
     padding-bottom: 2rem;
-    overflow-y: auto;
+    overflow-y: auto !important;
     overflow-x: hidden;
-    flex: 1;
+    flex: 1 1 auto;
     min-height: 0;
+    max-height: calc(85vh - 120px);
     scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
 }
@@ -1199,6 +1203,8 @@ select:focus {
     font-size: 0.8125rem;
     line-height: 1.6;
     min-height: 100px;
+    max-height: 200px;
+    resize: vertical;
 }
 
 /* Custom Headers Config */
@@ -1221,6 +1227,8 @@ select:focus {
         "Courier New", monospace;
     font-size: 0.8125rem;
     line-height: 1.6;
+    max-height: 150px;
+    resize: vertical;
 }
 
 /* Checkbox Styling */
@@ -1249,6 +1257,7 @@ label input[type="checkbox"] + span {
     border-radius: 8px;
     padding: 1rem;
     margin-bottom: 1rem;
+    margin-top: 1rem;
 }
 
 [data-theme="dark"] .auth-section {
@@ -1367,7 +1376,7 @@ label input[type="checkbox"] + span {
     transition:
         max-height 0.3s ease-out,
         opacity 0.3s ease-out;
-    max-height: none;
+    max-height: 5000px;
     opacity: 1;
 }
 
