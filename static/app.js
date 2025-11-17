@@ -286,6 +286,21 @@ const URL_MASK_LEVEL = {
 const CURRENT_MASK_LEVEL = URL_MASK_LEVEL.DOMAIN;
 
 // URL masking function with configurable privacy levels
+// Helper function to normalize URL (add https:// by default)
+function normalizeUrl(url) {
+  if (!url) return url;
+
+  url = url.trim();
+
+  // If URL already has a protocol, return as-is
+  if (url.match(/^https?:\/\//i)) {
+    return url;
+  }
+
+  // Add https:// by default
+  return "https://" + url;
+}
+
 function maskUrl(url, maskLevel = CURRENT_MASK_LEVEL) {
   if (!url) return "-";
 
@@ -296,9 +311,9 @@ function maskUrl(url, maskLevel = CURRENT_MASK_LEVEL) {
   try {
     urlObj = new URL(url);
   } catch (e) {
-    // Try adding protocol if missing
+    // Try adding protocol if missing (use https by default)
     try {
-      urlObj = new URL("http://" + url);
+      urlObj = new URL("https://" + url);
     } catch (e2) {
       // If all parsing fails, return masked placeholder
       return maskLevel === URL_MASK_LEVEL.FULL ? url : "***";
@@ -820,6 +835,9 @@ document.getElementById("testForm").addEventListener("submit", async (e) => {
     alert("Please enter a target host");
     return;
   }
+
+  // Normalize URL to use https by default
+  host = normalizeUrl(host);
 
   const users = parseInt(document.getElementById("users").value);
   const rampUp = parseInt(document.getElementById("rampUp").value);
