@@ -872,8 +872,10 @@ select:focus {
     max-width: 600px;
     width: 90%;
     max-height: 90vh;
-    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
 }
 
 [data-theme="dark"] .modal {
@@ -918,6 +920,31 @@ select:focus {
 
 .modal-body {
     padding: 1.25rem;
+    padding-bottom: 2rem;
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex: 1;
+    min-height: 0;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+}
+
+.modal-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+    background: var(--pipeops-bg);
+    border-radius: 4px;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+    background: var(--pipeops-border);
+    border-radius: 4px;
+}
+
+.modal-body::-webkit-scrollbar-thumb:hover {
+    background: var(--pipeops-primary);
 }
 
 /* Advanced Metrics Toggle */
@@ -1309,15 +1336,18 @@ label input[type="checkbox"] + span {
 }
 
 #advancedOptions {
-    overflow: hidden;
+    overflow: visible;
     transition:
         max-height 0.3s ease-out,
         opacity 0.3s ease-out;
+    max-height: none;
+    opacity: 1;
 }
 
 #advancedOptions.hidden {
     max-height: 0 !important;
     opacity: 0 !important;
+    overflow: hidden;
 }
 
 /* Ensure sections inside advanced options have proper spacing */
@@ -1333,8 +1363,9 @@ label input[type="checkbox"] + span {
 /* Action Buttons Section - Always Visible and Independent */
 .action-buttons-container {
     margin-top: 2rem !important;
+    margin-bottom: 0 !important;
     padding-top: 1.5rem !important;
-    padding-bottom: 0.5rem !important;
+    padding-bottom: 1rem !important;
     border-top: 3px solid var(--pipeops-primary) !important;
     background: var(--pipeops-surface) !important;
     position: relative !important;
