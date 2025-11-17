@@ -1111,3 +1111,180 @@ select:focus {
         font-size: 1rem;
     }
 }
+
+/* Request Configuration Sections */
+.request-config-section {
+    background: var(--pipeops-surface);
+    border: 1px solid var(--pipeops-border);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+[data-theme="dark"] .request-config-section {
+    background: var(--pipeops-surface-elevated);
+}
+
+.request-config-section .form-field {
+    margin-bottom: 1rem;
+}
+
+.request-config-section .form-field:last-child {
+    margin-bottom: 0;
+}
+
+/* Request Body Field Styling */
+#bodyField {
+    animation: slideDown 0.2s ease-out;
+}
+
+#bodyField .textarea {
+    font-family:
+        "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas,
+        "Courier New", monospace;
+    font-size: 0.8125rem;
+    line-height: 1.6;
+    min-height: 100px;
+}
+
+/* Custom Headers Config */
+#headersConfig {
+    animation: slideDown 0.2s ease-out;
+    background: var(--pipeops-bg);
+    border: 1px solid var(--pipeops-border);
+    border-radius: 6px;
+    padding: 0.875rem;
+    margin-top: 0.5rem;
+}
+
+[data-theme="dark"] #headersConfig {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+#headersConfig .textarea {
+    font-family:
+        "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas,
+        "Courier New", monospace;
+    font-size: 0.8125rem;
+    line-height: 1.6;
+}
+
+/* Checkbox Styling */
+.checkbox {
+    width: auto !important;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--pipeops-primary);
+}
+
+label input[type="checkbox"] {
+    margin-right: 0.5rem;
+    vertical-align: middle;
+}
+
+label input[type="checkbox"] + span {
+    vertical-align: middle;
+    cursor: pointer;
+    user-select: none;
+}
+
+/* Auth Section */
+.auth-section {
+    background: var(--pipeops-surface);
+    border: 1px solid var(--pipeops-border);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+[data-theme="dark"] .auth-section {
+    background: var(--pipeops-surface-elevated);
+}
+
+.auth-section .form-field {
+    margin-bottom: 1rem;
+}
+
+.auth-section .form-field:last-child {
+    margin-bottom: 0;
+}
+
+/* Form Hints */
+.form-hint {
+    font-size: 0.6875rem;
+    color: var(--pipeops-text-light);
+    margin-top: 0.25rem;
+    line-height: 1.4;
+}
+
+/* Slide Down Animation */
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        max-height: 0;
+        margin-top: 0;
+        margin-bottom: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+        overflow: hidden;
+    }
+    to {
+        opacity: 1;
+        max-height: 500px;
+        overflow: visible;
+    }
+}
+
+/* Section Labels with Icons */
+.form-field label {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.form-field label[for="body"]::before,
+.form-field label[for="customHeaders"]::before {
+    content: "{ }";
+    font-family: monospace;
+    font-size: 0.875rem;
+    color: var(--pipeops-primary);
+    font-weight: bold;
+}
+
+.form-field label[for="method"]::before {
+    content: "⚡";
+    font-size: 0.875rem;
+}
+
+/* Textarea Placeholder Styling */
+.textarea::placeholder {
+    color: var(--pipeops-text-light);
+    opacity: 0.5;
+    font-style: italic;
+}
+
+/* Better spacing for modal form sections */
+.test-modal .form-field {
+    margin-bottom: 1.25rem;
+}
+
+.test-modal .request-config-section,
+.test-modal .auth-section {
+    margin-bottom: 1.5rem;
+}
+
+/* Section Headers */
+.section-header {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--pipeops-text);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.section-header .section-icon {
+    color: var(--pipeops-primary);
+    font-size: 1rem;
+}
