@@ -378,6 +378,72 @@
                             </div>
                         </div>
 
+                        <!-- HTTP Request Configuration -->
+                        <div class="request-config-section">
+                            <div class="form-field">
+                                <label for="method">HTTP Method</label>
+                                <select id="method" class="input">
+                                    <option value="GET" selected>GET</option>
+                                    <option value="POST">POST</option>
+                                    <option value="PUT">PUT</option>
+                                    <option value="DELETE">DELETE</option>
+                                    <option value="PATCH">PATCH</option>
+                                    <option value="HEAD">HEAD</option>
+                                    <option value="OPTIONS">OPTIONS</option>
+                                </select>
+                                <div class="form-hint">
+                                    HTTP method for requests
+                                </div>
+                            </div>
+
+                            <div
+                                class="form-field"
+                                id="bodyField"
+                                style="display: none"
+                            >
+                                <label for="body">Request Body</label>
+                                <textarea
+                                    id="body"
+                                    name="body"
+                                    rows="4"
+                                    placeholder='{"key": "value"}'
+                                    class="input textarea"
+                                ></textarea>
+                                <div class="form-hint">
+                                    JSON payload for POST/PUT/PATCH requests
+                                </div>
+                            </div>
+
+                            <div class="form-field">
+                                <label>
+                                    <input
+                                        type="checkbox"
+                                        id="enableHeaders"
+                                        class="checkbox"
+                                    />
+                                    <span>Add Custom Headers</span>
+                                </label>
+                            </div>
+
+                            <div id="headersConfig" style="display: none">
+                                <div class="form-field">
+                                    <label for="customHeaders"
+                                        >Custom Headers (JSON)</label
+                                    >
+                                    <textarea
+                                        id="customHeaders"
+                                        name="customHeaders"
+                                        rows="3"
+                                        placeholder='{"Content-Type": "application/json", "X-API-Key": "your-key"}'
+                                        class="input textarea"
+                                    ></textarea>
+                                    <div class="form-hint">
+                                        JSON object with header key-value pairs
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Authentication Section -->
                         <div class="auth-section">
                             <div class="form-field">

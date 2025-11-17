@@ -46,6 +46,9 @@ type TestContext struct {
 	Metrics    *MetricsCollector
 	IsRunning  *atomic.Bool
 	AuthConfig *AuthConfig
+	Method     string
+	Body       string
+	Headers    map[string]string
 }
 
 type AuthConfig struct {
@@ -143,11 +146,14 @@ func (tm *TestManager) HandleStartTest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Host      string      `json:"host"`
-		Users     int         `json:"users"`
-		RampUpSec int         `json:"ramp_up_sec"`
-		Duration  int         `json:"duration"`
-		Auth      *AuthConfig `json:"auth,omitempty"`
+		Host      string            `json:"host"`
+		Users     int               `json:"users"`
+		RampUpSec int               `json:"ramp_up_sec"`
+		Duration  int               `json:"duration"`
+		Auth      *AuthConfig       `json:"auth,omitempty"`
+		Method    string            `json:"method,omitempty"`  // HTTP method (GET, POST, PUT, DELETE, etc.)
+		Body      string            `json:"body,omitempty"`    // Request body payload
+		Headers   map[string]string `json:"headers,omitempty"` // Custom headers
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -186,6 +192,30 @@ func (tm *TestManager) HandleStartTest(w http.ResponseWriter, r *http.Request) {
 	// Additional safety check: ramp-up should not exceed duration
 	if req.RampUpSec > req.Duration {
 		http.Error(w, "Ramp-up time cannot exceed test duration", http.StatusBadRequest)
+		return
+	}
+
+	// Validate HTTP method (default to GET if not specified)
+	if req.Method == "" {
+		req.Method = "GET"
+	}
+	req.Method = strings.ToUpper(req.Method)
+	validMethods := []string{"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"}
+	methodValid := false
+	for _, m := range validMethods {
+		if req.Method == m {
+			methodValid = true
+			break
+		}
+	}
+	if !methodValid {
+		http.Error(w, fmt.Sprintf("Invalid HTTP method. Allowed: %v", validMethods), http.StatusBadRequest)
+		return
+	}
+
+	// Validate body is only present for appropriate methods
+	if req.Body != "" && (req.Method == "GET" || req.Method == "HEAD") {
+		http.Error(w, "Request body not allowed for GET or HEAD methods", http.StatusBadRequest)
 		return
 	}
 
@@ -245,6 +275,9 @@ func (tm *TestManager) HandleStartTest(w http.ResponseWriter, r *http.Request) {
 		Duration:   req.Duration,
 		Status:     "running",
 		StartedAt:  time.Now(),
+		Method:     req.Method,
+		Body:       req.Body,
+		Headers:    req.Headers,
 	}
 
 	testRunID, err := SaveTestRun(tm.db, testRun)
@@ -275,6 +308,9 @@ func (tm *TestManager) HandleStartTest(w http.ResponseWriter, r *http.Request) {
 		Metrics:    metrics,
 		IsRunning:  isRunning,
 		AuthConfig: req.Auth,
+		Method:     req.Method,
+		Body:       req.Body,
+		Headers:    req.Headers,
 	}
 
 	tm.mu.Lock()
@@ -431,11 +467,33 @@ func (tm *TestManager) runUser(ctx context.Context, testRunID int64, host string
 		case <-ticker.C:
 			start := time.Now()
 
-			// Create request with authentication and context
-			req, err := http.NewRequestWithContext(ctx, "GET", targetURL, nil)
+			// Create request with custom method, body, and context
+			var bodyReader io.Reader
+			if testCtx.Body != "" {
+				bodyReader = strings.NewReader(testCtx.Body)
+			}
+
+			method := testCtx.Method
+			if method == "" {
+				method = "GET"
+			}
+
+			req, err := http.NewRequestWithContext(ctx, method, targetURL, bodyReader)
 			if err != nil {
 				metrics.Record(time.Since(start).Seconds()*1000, false, 0)
 				continue
+			}
+
+			// Apply custom headers
+			for key, value := range testCtx.Headers {
+				req.Header.Set(key, value)
+			}
+
+			// Set Content-Type for POST/PUT/PATCH if body exists and not already set
+			if testCtx.Body != "" && (method == "POST" || method == "PUT" || method == "PATCH") {
+				if req.Header.Get("Content-Type") == "" {
+					req.Header.Set("Content-Type", "application/json")
+				}
 			}
 
 			// Apply authentication

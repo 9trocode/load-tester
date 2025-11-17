@@ -406,17 +406,35 @@ function resetForm() {
   document.getElementById("users").value = "10";
   document.getElementById("rampUp").value = "5";
   document.getElementById("duration").value = "30";
+  document.getElementById("method").value = "GET";
+  document.getElementById("body").value = "";
+  document.getElementById("bodyField").style.display = "none";
   document.getElementById("enableAuth").checked = false;
   document.getElementById("authConfig").style.display = "none";
-  document.getElementById("authType").value = "jwt";
-  showAuthTypeConfig("jwt");
+  document.getElementById("enableHeaders").checked = false;
+  document.getElementById("customHeaders").value = "";
+  document.getElementById("headersConfig").style.display = "none";
 }
 
 // Show/hide auth config based on checkbox
 function toggleAuthConfig() {
-  const enableAuth = document.getElementById("enableAuth");
+  const enableAuth = document.getElementById("enableAuth").checked;
   const authConfig = document.getElementById("authConfig");
-  authConfig.style.display = enableAuth.checked ? "block" : "none";
+  authConfig.style.display = enableAuth ? "block" : "none";
+}
+
+function toggleHeadersConfig() {
+  const enableHeaders = document.getElementById("enableHeaders").checked;
+  const headersConfig = document.getElementById("headersConfig");
+  headersConfig.style.display = enableHeaders ? "block" : "none";
+}
+
+function toggleBodyField() {
+  const method = document.getElementById("method").value;
+  const bodyField = document.getElementById("bodyField");
+  // Show body field for POST, PUT, PATCH
+  const methodsWithBody = ["POST", "PUT", "PATCH"];
+  bodyField.style.display = methodsWithBody.includes(method) ? "block" : "none";
 }
 
 // Show auth type specific config
@@ -725,6 +743,10 @@ document
 document.getElementById("authType").addEventListener("change", (e) => {
   showAuthTypeConfig(e.target.value);
 });
+document
+  .getElementById("enableHeaders")
+  .addEventListener("change", toggleHeadersConfig);
+document.getElementById("method").addEventListener("change", toggleBodyField);
 
 // Close modal on overlay click
 document.getElementById("testModal").addEventListener("click", (e) => {
@@ -780,9 +802,57 @@ document.getElementById("testForm").addEventListener("submit", async (e) => {
   // Get auth config
   const auth = getAuthConfig();
 
+  // Get HTTP method
+  const method = document.getElementById("method").value || "GET";
+
+  // Get request body
+  const bodyField = document.getElementById("body").value.trim();
+  let requestBodyPayload = null;
+  if (
+    bodyField &&
+    (method === "POST" || method === "PUT" || method === "PATCH")
+  ) {
+    // Validate JSON if provided
+    try {
+      JSON.parse(bodyField);
+      requestBodyPayload = bodyField;
+    } catch (e) {
+      alert("Invalid JSON in request body: " + e.message);
+      return;
+    }
+  }
+
+  // Get custom headers
+  const enableHeaders = document.getElementById("enableHeaders").checked;
+  let customHeaders = null;
+  if (enableHeaders) {
+    const headersField = document.getElementById("customHeaders").value.trim();
+    if (headersField) {
+      try {
+        customHeaders = JSON.parse(headersField);
+        if (typeof customHeaders !== "object" || Array.isArray(customHeaders)) {
+          alert("Headers must be a JSON object");
+          return;
+        }
+      } catch (e) {
+        alert("Invalid JSON in custom headers: " + e.message);
+        return;
+      }
+    }
+  }
+
   const requestBody = { host, users, ramp_up_sec: rampUp, duration };
   if (auth) {
     requestBody.auth = auth;
+  }
+  if (method && method !== "GET") {
+    requestBody.method = method;
+  }
+  if (requestBodyPayload) {
+    requestBody.body = requestBodyPayload;
+  }
+  if (customHeaders) {
+    requestBody.headers = customHeaders;
   }
 
   try {

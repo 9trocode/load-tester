@@ -208,7 +208,8 @@ body {
     color: var(--pipeops-text-light);
 }
 
-.input {
+.input,
+.textarea {
     padding: 0.5rem 0.75rem;
     border: 1px solid var(--pipeops-border);
     border-radius: 6px;
@@ -219,11 +220,20 @@ body {
     font-family: inherit;
 }
 
-[data-theme="dark"] .input {
+.textarea {
+    font-family: "Courier New", Courier, monospace;
+    resize: vertical;
+    min-height: 80px;
+    line-height: 1.5;
+}
+
+[data-theme="dark"] .input,
+[data-theme="dark"] .textarea {
     background: var(--pipeops-surface-elevated, #1a1f2e);
 }
 
-.input:focus {
+.input:focus,
+.textarea:focus {
     outline: none;
     border-color: var(--pipeops-primary);
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
