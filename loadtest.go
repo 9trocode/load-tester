@@ -405,7 +405,7 @@ func (tm *TestManager) runLoadTest(testCtx *TestContext, clientIP string) {
 							return
 						default:
 							wg.Add(1)
-							go tm.runUser(ctx, testRun.ID, testRun.Host, metrics, &wg, stopChan, authConfig)
+							go tm.runUser(ctx, testRun.ID, testRun.Host, metrics, &wg, stopChan, authConfig, testRun.Method, testRun.Body, testRun.Headers)
 							usersStarted++
 						}
 					}
@@ -422,7 +422,7 @@ func (tm *TestManager) runLoadTest(testCtx *TestContext, clientIP string) {
 							return
 						default:
 							wg.Add(1)
-							go tm.runUser(ctx, testRun.ID, testRun.Host, metrics, &wg, stopChan, authConfig)
+							go tm.runUser(ctx, testRun.ID, testRun.Host, metrics, &wg, stopChan, authConfig, testRun.Method, testRun.Body, testRun.Headers)
 							usersStarted++
 						}
 					}
@@ -445,7 +445,7 @@ func (tm *TestManager) runLoadTest(testCtx *TestContext, clientIP string) {
 	}
 }
 
-func (tm *TestManager) runUser(ctx context.Context, testRunID int64, host string, metrics *MetricsCollector, wg *sync.WaitGroup, stopChan <-chan struct{}, authConfig *AuthConfig) {
+func (tm *TestManager) runUser(ctx context.Context, testRunID int64, host string, metrics *MetricsCollector, wg *sync.WaitGroup, stopChan <-chan struct{}, authConfig *AuthConfig, method string, body string, headers map[string]string) {
 	defer wg.Done()
 
 	client := &http.Client{
@@ -469,28 +469,28 @@ func (tm *TestManager) runUser(ctx context.Context, testRunID int64, host string
 
 			// Create request with custom method, body, and context
 			var bodyReader io.Reader
-			if testCtx.Body != "" {
-				bodyReader = strings.NewReader(testCtx.Body)
+			if body != "" {
+				bodyReader = strings.NewReader(body)
 			}
 
-			method := testCtx.Method
-			if method == "" {
-				method = "GET"
+			requestMethod := method
+			if requestMethod == "" {
+				requestMethod = "GET"
 			}
 
-			req, err := http.NewRequestWithContext(ctx, method, targetURL, bodyReader)
+			req, err := http.NewRequestWithContext(ctx, requestMethod, targetURL, bodyReader)
 			if err != nil {
 				metrics.Record(time.Since(start).Seconds()*1000, false, 0)
 				continue
 			}
 
 			// Apply custom headers
-			for key, value := range testCtx.Headers {
+			for key, value := range headers {
 				req.Header.Set(key, value)
 			}
 
 			// Set Content-Type for POST/PUT/PATCH if body exists and not already set
-			if testCtx.Body != "" && (method == "POST" || method == "PUT" || method == "PATCH") {
+			if body != "" && (requestMethod == "POST" || requestMethod == "PUT" || requestMethod == "PATCH") {
 				if req.Header.Get("Content-Type") == "" {
 					req.Header.Set("Content-Type", "application/json")
 				}
