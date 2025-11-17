@@ -426,15 +426,34 @@ function toggleAuthConfig() {
 function toggleHeadersConfig() {
   const enableHeaders = document.getElementById("enableHeaders").checked;
   const headersConfig = document.getElementById("headersConfig");
-  headersConfig.style.display = enableHeaders ? "block" : "none";
+  console.log("[toggleHeadersConfig] enableHeaders:", enableHeaders);
+  console.log("[toggleHeadersConfig] headersConfig element:", headersConfig);
+  if (headersConfig) {
+    headersConfig.style.display = enableHeaders ? "block" : "none";
+    console.log(
+      "[toggleHeadersConfig] Set display to:",
+      headersConfig.style.display,
+    );
+  } else {
+    console.error("[toggleHeadersConfig] headersConfig element not found!");
+  }
 }
 
 function toggleBodyField() {
   const method = document.getElementById("method").value;
   const bodyField = document.getElementById("bodyField");
+  console.log("[toggleBodyField] method:", method);
+  console.log("[toggleBodyField] bodyField element:", bodyField);
   // Show body field for POST, PUT, PATCH
   const methodsWithBody = ["POST", "PUT", "PATCH"];
-  bodyField.style.display = methodsWithBody.includes(method) ? "block" : "none";
+  const shouldShow = methodsWithBody.includes(method);
+  console.log("[toggleBodyField] shouldShow:", shouldShow);
+  if (bodyField) {
+    bodyField.style.display = shouldShow ? "block" : "none";
+    console.log("[toggleBodyField] Set display to:", bodyField.style.display);
+  } else {
+    console.error("[toggleBodyField] bodyField element not found!");
+  }
 }
 
 // Show auth type specific config
@@ -1785,6 +1804,10 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   // Setup event delegation
   setupEventDelegation();
+
+  // Initialize form field visibility
+  toggleBodyField();
+  toggleHeadersConfig();
 
   // Check for running tests and resume if found
   console.log("[Init] Checking for running tests...");
