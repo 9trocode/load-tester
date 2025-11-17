@@ -2,48 +2,6 @@
 
 A professional load testing and performance analysis tool built by PipeOps. Designed for comprehensive performance testing with real-time metrics, visual analytics, and detailed reporting.
 
-## Latest Updates (v2.0.0)
-
-### UUID-Based Test URLs - NEW!
-
-Each test now has a **unique, clean URL** with UUID:
-
-```
-http://localhost:8080/test/550e8400-e29b-41d4-a716-446655440000
-```
-
-**Benefits:**
-
-- Refresh the page anytime - test persists!
-- Bookmark long-running tests
-- Share URL with team - everyone sees same live metrics
-- Clean, professional URLs (no query parameters)
-- Works across browser sessions
-
-See `UUID_IMPLEMENTATION.md` for complete details.
-
-## Previous Updates (v1.0.0)
-
-### Frontend Enhancements
-
-- **Live Overview Card** - Real-time display of virtual users, elapsed/remaining time, and progress bar
-- **Clickable History** - Collapsed history items with templated summaries, click to expand
-- **Test Resumption** - Never lose access to running tests! Auto-reconnects after refresh, shareable URLs
-- **Performance Optimizations** - 50-67% memory reduction, 67% CPU reduction
-- **Improved UX** - Smooth animations, better visual hierarchy, mobile responsive
-
-### Backend Improvements
-
-- **Security Hardening** - SSRF protection, input validation, rate limiting
-- **Structured Logging** - JSON logs with request ID tracing
-- **Graceful Shutdown** - Proper cleanup of active tests and resources
-- **Race Condition Fixes** - Thread-safe operations throughout
-- **Memory Leak Prevention** - Automatic cleanup of rate limit maps
-
-See `IMPLEMENTATION_SUMMARY.md` for complete details.
-
-## Features
-
 ### Core Functionality
 
 - **Professional UI** - Clean, modern interface with PipeOps branding and dark/light theme
