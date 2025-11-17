@@ -1288,3 +1288,42 @@ label input[type="checkbox"] + span {
     color: var(--pipeops-primary);
     font-size: 1rem;
 }
+
+/* Advanced Options Toggle */
+#advancedToggle {
+    transition: all 0.2s ease;
+}
+
+#advancedToggle:hover {
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+}
+
+#advancedToggle:active {
+    transform: scale(0.98);
+}
+
+#advancedChevron {
+    transition: transform 0.3s ease;
+}
+
+#advancedOptions {
+    overflow: hidden;
+    transition:
+        max-height 0.3s ease-out,
+        opacity 0.3s ease-out;
+}
+
+#advancedOptions.hidden {
+    max-height: 0 !important;
+    opacity: 0 !important;
+}
+
+/* Ensure sections inside advanced options have proper spacing */
+#advancedOptions .request-config-section,
+#advancedOptions .auth-section {
+    margin-top: 0;
+}
+
+#advancedOptions .request-config-section {
+    margin-bottom: 1rem;
+}

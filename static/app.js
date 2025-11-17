@@ -456,6 +456,34 @@ function toggleBodyField() {
   }
 }
 
+// Toggle advanced options section
+function toggleAdvancedOptions() {
+  const advancedOptions = document.getElementById("advancedOptions");
+  const chevron = document.getElementById("advancedChevron");
+
+  console.log("[toggleAdvancedOptions] Toggling advanced options");
+
+  if (advancedOptions.classList.contains("hidden")) {
+    // Show advanced options
+    advancedOptions.classList.remove("hidden");
+    advancedOptions.style.maxHeight = advancedOptions.scrollHeight + "px";
+    advancedOptions.style.opacity = "1";
+    chevron.style.transform = "rotate(90deg)";
+    console.log("[toggleAdvancedOptions] Advanced options shown");
+  } else {
+    // Hide advanced options
+    advancedOptions.style.maxHeight = "0";
+    advancedOptions.style.opacity = "0";
+    chevron.style.transform = "rotate(0deg)";
+
+    // Add hidden class after animation completes
+    setTimeout(() => {
+      advancedOptions.classList.add("hidden");
+    }, 300);
+    console.log("[toggleAdvancedOptions] Advanced options hidden");
+  }
+}
+
 // Show auth type specific config
 function showAuthTypeConfig(type) {
   document.querySelectorAll(".auth-type-config").forEach((el) => {
@@ -1808,6 +1836,16 @@ window.addEventListener("DOMContentLoaded", async () => {
   // Initialize form field visibility
   toggleBodyField();
   toggleHeadersConfig();
+
+  // Initialize advanced options styling
+  const advancedOptions = document.getElementById("advancedOptions");
+  if (advancedOptions) {
+    advancedOptions.style.overflow = "hidden";
+    advancedOptions.style.transition =
+      "max-height 0.3s ease-out, opacity 0.3s ease-out";
+    advancedOptions.style.maxHeight = "0";
+    advancedOptions.style.opacity = "0";
+  }
 
   // Check for running tests and resume if found
   console.log("[Init] Checking for running tests...");
