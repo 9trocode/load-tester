@@ -60,8 +60,8 @@ func main() {
 	http.HandleFunc("/api/report/", requestIDMiddleware(testManager.HandleGenerateReport))
 	http.HandleFunc("/api/ip-stats", requestIDMiddleware(testManager.HandleGetIPStats))
 
-	// Serve static files
-	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+	// Serve static files with no-cache headers
+	http.Handle("/static/", noCacheMiddleware(http.StripPrefix("/static/", http.FileServer(http.Dir("static")))))
 
 	// Get port from environment variable or default to 8080
 	port := os.Getenv("PORT")
@@ -145,5 +145,19 @@ func requestIDMiddleware(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func serveIndex(w http.ResponseWriter, r *http.Request) {
+	// Add no-cache headers for index.html
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
 	http.ServeFile(w, r, "static/index.html")
+}
+
+// noCacheMiddleware adds no-cache headers to prevent browser caching
+func noCacheMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+		w.Header().Set("Pragma", "no-cache")
+		w.Header().Set("Expires", "0")
+		next.ServeHTTP(w, r)
+	})
 }

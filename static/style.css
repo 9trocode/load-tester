@@ -935,7 +935,7 @@ select:focus {
 }
 
 .modal-header {
-    padding: 0.875rem 1.125rem;
+    padding: 0.875rem 1rem;
     border-bottom: 1px solid var(--pipeops-border);
     display: flex;
     justify-content: space-between;
@@ -982,7 +982,7 @@ select:focus {
     flex: 1;
     overflow-y: auto !important;
     overflow-x: hidden;
-    padding: 1rem 1.25rem;
+    padding: 1rem;
     padding-bottom: 1rem;
     scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
@@ -1661,7 +1661,7 @@ label input[type="checkbox"] + span {
 /* Action Buttons Section - Sticky Footer */
 .action-buttons-container {
     margin: 0 !important;
-    padding: 0.875rem 1.25rem !important;
+    padding: 0.875rem 1rem !important;
     border-top: 2px solid var(--pipeops-border) !important;
     background: var(--pipeops-surface) !important;
     flex-shrink: 0 !important;
