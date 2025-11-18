@@ -8,10 +8,10 @@ services:
       - "8080:8080"
     volumes:
       # Persist database and WAL files across container restarts
-      - load-tester-data:/home/pipeops/app/data
+      - load-tester-data:/app/data
     environment:
       - PORT=8080
-      - DB_PATH=/home/pipeops/app/data/loadtest.db
+      - DB_PATH=/app/data/loadtest.db
       - TZ=UTC
     restart: unless-stopped
     healthcheck:

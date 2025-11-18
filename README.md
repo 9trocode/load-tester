@@ -91,21 +91,20 @@ docker-compose up -d
 
 ### Docker Troubleshooting
 
-If you encounter database initialization errors in Docker:
+The application now runs with simplified permissions - the container runs as root to avoid volume permission issues.
 
-```
-ERROR: Failed to initialize database: unable to open database file: no such file or directory
-```
-
-**Quick Fix:**
+If you encounter any issues:
 
 ```bash
-# Run the automated fix script
-./fix-permissions.sh
+# Check logs
+docker-compose logs -f
 
-# Or manually fix permissions
-docker exec -u root pipeops-load-tester chown -R pipeops:pipeops /home/pipeops/app/data
-docker restart pipeops-load-tester
+# Restart container
+docker-compose restart
+
+# Fresh start (removes data)
+docker-compose down -v
+docker-compose up -d
 ```
 
 **For detailed troubleshooting**, see [docs/DOCKER_TROUBLESHOOTING.md](docs/DOCKER_TROUBLESHOOTING.md)
@@ -194,7 +193,7 @@ export DB_PATH=/path/to/your/database.db
 
 ### Docker Deployment
 
-When running in Docker, the database is stored at `/home/pipeops/app/data/loadtest.db` and persisted via volume mount:
+When running in Docker, the database is stored at `/app/data/loadtest.db` and persisted via volume mount:
 
 ```bash
 # Using docker-compose (recommended)
@@ -203,8 +202,8 @@ docker-compose up -d
 # Manual docker run with volume
 docker run -d \
   -p 8080:8080 \
-  -v load-tester-data:/home/pipeops/app/data \
-  -e DB_PATH=/home/pipeops/app/data/loadtest.db \
+  -v load-tester-data:/app/data \
+  -e DB_PATH=/app/data/loadtest.db \
   pipeops-load-tester
 ```
 

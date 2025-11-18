@@ -10,6 +10,7 @@ DB_DIR=$(dirname "$DB_PATH")
 echo "==> PipeOps Load Tester Startup"
 echo "==> Database path: $DB_PATH"
 echo "==> Database directory: $DB_DIR"
+echo "==> Current user: $(whoami) (UID: $(id -u), GID: $(id -g))"
 
 # Create database directory if it doesn't exist
 if [ ! -d "$DB_DIR" ]; then
@@ -17,30 +18,27 @@ if [ ! -d "$DB_DIR" ]; then
     mkdir -p "$DB_DIR"
 fi
 
-# Check if directory is writable
-if [ ! -w "$DB_DIR" ]; then
-    echo "==> WARNING: Database directory is not writable: $DB_DIR"
-    echo "==> Current user: $(whoami) (UID: $(id -u), GID: $(id -g))"
-    echo "==> Directory permissions:"
-    ls -la "$DB_DIR" 2>/dev/null || ls -la "$(dirname "$DB_DIR")"
+# Check current ownership
+echo "==> Checking directory permissions..."
+ls -la "$DB_DIR" 2>/dev/null || ls -la "$(dirname "$DB_DIR")"
 
-    # Try to fix permissions if we have permission
-    if [ -w "$(dirname "$DB_DIR")" ]; then
-        echo "==> Attempting to fix permissions..."
-        chmod 755 "$DB_DIR" 2>/dev/null || true
-    fi
-fi
+# Fix ownership to pipeops:pipeops (UID:GID 1000:1000)
+echo "==> Ensuring correct ownership (pipeops:pipeops)..."
+chown -R pipeops:pipeops "$DB_DIR"
 
-# Verify directory is now accessible
+# Fix permissions
+echo "==> Setting permissions (755)..."
+chmod -R 755 "$DB_DIR"
+
+# Verify directory is now accessible by pipeops user
 if [ -w "$DB_DIR" ]; then
     echo "==> Database directory is writable ✓"
 else
     echo "==> ERROR: Database directory is still not writable!"
-    echo "==> Please ensure the volume mount has correct permissions"
-    echo "==> Run: docker exec <container> chown -R pipeops:pipeops $DB_DIR"
+    echo "==> This should not happen - permissions were just set"
     exit 1
 fi
 
-# Start the application
-echo "==> Starting PipeOps Load Tester..."
-exec "$@"
+# Start the application as pipeops user
+echo "==> Starting PipeOps Load Tester as user pipeops..."
+exec gosu pipeops "$@"
