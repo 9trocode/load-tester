@@ -1332,6 +1332,119 @@ select:focus {
     }
 }
 
+/* Test Started Notification (Toast) */
+.test-started-notification {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 9999;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    border-left: 4px solid var(--pipeops-success);
+    max-width: 400px;
+    opacity: 0;
+    transform: translateX(400px);
+    transition: all 0.3s ease-out;
+}
+
+.test-started-notification.show {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+[data-theme="dark"] .test-started-notification {
+    background: var(--pipeops-surface);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.notification-body {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    padding: 1rem 1.25rem;
+    position: relative;
+}
+
+.notification-icon-success {
+    width: 32px;
+    height: 32px;
+    background: var(--pipeops-success);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.notification-message {
+    flex: 1;
+    min-width: 0;
+}
+
+.notification-message strong {
+    display: block;
+    color: var(--pipeops-text);
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.notification-message p {
+    color: var(--pipeops-text-light);
+    font-size: 0.75rem;
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.notification-view-btn {
+    background: var(--pipeops-primary);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 0.5rem 0.875rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+
+.notification-view-btn:hover {
+    background: var(--pipeops-primary-dark);
+    transform: translateY(-1px);
+}
+
+.notification-close {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    background: transparent;
+    border: none;
+    color: var(--pipeops-text-light);
+    font-size: 1.25rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0.25rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.15s;
+}
+
+.notification-close:hover {
+    background: var(--pipeops-bg);
+    color: var(--pipeops-text);
+}
+
 @media (max-width: 768px) {
     .app-main {
         padding: 0.5rem;
@@ -1558,6 +1671,23 @@ select:focus {
 
     .running-test-actions .btn {
         width: 100%;
+    }
+
+    .test-started-notification {
+        top: 0.5rem;
+        right: 0.5rem;
+        left: 0.5rem;
+        max-width: none;
+    }
+
+    .notification-body {
+        flex-wrap: wrap;
+        padding: 0.875rem 1rem;
+    }
+
+    .notification-view-btn {
+        width: 100%;
+        margin-top: 0.5rem;
     }
 
     .overview-stats {

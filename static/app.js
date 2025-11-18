@@ -59,30 +59,21 @@ async function checkAndResumeTest() {
     return true;
   }
 
-  // Priority 2: localStorage (only if on homepage)
+  // Do NOT auto-resume from localStorage - let users stay on homepage
+  // They can always go back to their test via the running tests card or history
+  // Only clear localStorage if test is no longer running
   testUUID = getTestUUIDFromStorage();
-  console.log("[Resume] localStorage test_uuid:", testUUID);
-
   if (testUUID) {
     console.log("[Resume] Found test UUID in localStorage:", testUUID);
-    // Verify it's still running
     const isRunning = await checkIfTestRunning(testUUID);
-    console.log("[Resume] Test still running?", isRunning);
-
-    if (isRunning) {
-      await resumeTest(testUUID);
-      return true;
-    } else {
-      // Clean up if not running
+    if (!isRunning) {
       console.log("[Resume] Cleaning up localStorage (test not running)");
       saveTestUUIDToStorage(null);
     }
   }
 
-  // Do NOT auto-resume tests from server - let users stay on homepage
-  console.log(
-    "[Resume] No test to resume (not forcing users to running tests)",
-  );
+  // Do NOT auto-resume tests - let users stay on homepage
+  console.log("[Resume] No test to resume (user stays on homepage)");
   return false;
 }
 
@@ -1635,6 +1626,38 @@ function createRunningTestItem(test) {
   return item;
 }
 
+// Show success notification when test is started
+function showTestStartedNotification(testUUID, host) {
+  // Create notification element
+  const notification = document.createElement("div");
+  notification.className = "test-started-notification";
+  notification.innerHTML = `
+    <div class="notification-body">
+      <div class="notification-icon-success">✓</div>
+      <div class="notification-message">
+        <strong>Test Started Successfully!</strong>
+        <p>Testing ${maskUrl(host)}</p>
+      </div>
+      <button class="notification-view-btn" onclick="window.location.href='/test/${testUUID}'">
+        View Live Metrics →
+      </button>
+      <button class="notification-close" onclick="this.parentElement.parentElement.remove()">×</button>
+    </div>
+  `;
+
+  // Add to page
+  document.body.appendChild(notification);
+
+  // Animate in
+  setTimeout(() => notification.classList.add("show"), 10);
+
+  // Auto remove after 8 seconds
+  setTimeout(() => {
+    notification.classList.remove("show");
+    setTimeout(() => notification.remove(), 300);
+  }, 8000);
+}
+
 // Helper function to format time (already exists but ensuring it's available)
 function formatTime(seconds) {
   if (seconds < 60) return `${seconds}s`;
@@ -1847,35 +1870,16 @@ window.addEventListener("DOMContentLoaded", async () => {
       const data = await response.json();
       currentTestId = data.test_uuid; // Use UUID instead of numeric ID
 
-      // Save test UUID to URL and localStorage
-      setTestUUIDInURL(currentTestId);
+      // Save test UUID to localStorage only (don't navigate to test page)
       saveTestUUIDToStorage(currentTestId);
 
-      // Store test configuration
-      testStartTime = Date.now();
-      testDurationSeconds = duration;
-      testUsers = users;
-
-      // Store host for display
-      document.getElementById("currentHostUrl").textContent = maskUrl(host);
-
-      // Update overview fields using cache
-      domCache.virtualUsers.textContent = users;
-      domCache.testDuration.textContent = duration + "s";
-      domCache.elapsedTime.textContent = "0s";
-      domCache.remainingTime.textContent = duration + "s";
-      domCache.progressPercentage.textContent = "0%";
-      domCache.progressBarFill.style.width = "0%";
-
       closeTestModal();
-      domCache.ctaSection.style.display = "none";
-      domCache.metricsSection.style.display = "block";
-      domCache.historySection.style.display = "none"; // Always hide history on test page
 
-      // Reset charts
-      resetCharts();
-      startMetricsPolling();
-      startTimeSeriesPolling();
+      // Show success notification and stay on homepage
+      showTestStartedNotification(currentTestId, host);
+
+      // Refresh the running tests notification to show the new test
+      await checkForRunningTestsNotification();
     } catch (error) {
       alert("Error starting test: " + error.message);
     }
