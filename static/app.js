@@ -1184,18 +1184,38 @@ function toggleAdvancedOptions() {
   const chevron = document.getElementById("advancedChevron");
   const toggleButton = document.getElementById("advancedToggle");
 
+  if (!advancedOptions || !chevron) {
+    console.error("[toggleAdvancedOptions] Required elements not found");
+    return;
+  }
+
   console.log("[toggleAdvancedOptions] Toggling advanced options");
 
   if (advancedOptions.classList.contains("hidden")) {
     // Show advanced options
     advancedOptions.classList.remove("hidden");
-    advancedOptions.style.maxHeight = advancedOptions.scrollHeight + "px";
+    // Force reflow to ensure transition works
+    advancedOptions.offsetHeight;
+
+    // Get the container inside for proper height calculation
+    const container = advancedOptions.querySelector(
+      ".advanced-options-container",
+    );
+    const contentHeight = container
+      ? container.scrollHeight + 32
+      : advancedOptions.scrollHeight;
+
+    // Set to actual content height for smooth animation (add padding)
+    advancedOptions.style.maxHeight = contentHeight + "px";
     advancedOptions.style.opacity = "1";
     chevron.style.transform = "rotate(90deg)";
     if (toggleButton) {
       toggleButton.setAttribute("aria-expanded", "true");
     }
-    console.log("[toggleAdvancedOptions] Advanced options shown");
+    console.log("[toggleAdvancedOptions] Advanced options shown", {
+      scrollHeight: advancedOptions.scrollHeight,
+      contentHeight: contentHeight,
+    });
   } else {
     // Hide advanced options
     advancedOptions.style.maxHeight = "0";
@@ -1545,12 +1565,14 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   // Initialize advanced options styling
   const advancedOptions = document.getElementById("advancedOptions");
+  const advancedToggle = document.getElementById("advancedToggle");
   if (advancedOptions) {
-    advancedOptions.style.overflow = "hidden";
-    advancedOptions.style.transition =
-      "max-height 0.3s ease-out, opacity 0.3s ease-out";
+    advancedOptions.classList.add("hidden");
     advancedOptions.style.maxHeight = "0";
     advancedOptions.style.opacity = "0";
+    if (advancedToggle) {
+      advancedToggle.setAttribute("aria-expanded", "false");
+    }
   }
 
   // Event listeners
@@ -1686,7 +1708,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     if (auth) {
       requestBody.auth = auth;
     }
-    if (method && method !== "GET") {
+    if (method) {
       requestBody.method = method;
     }
     if (requestBodyPayload) {

@@ -22,6 +22,7 @@ go.work
 *.db
 *.sqlite
 *.sqlite3
+data/
 
 
 # IDE

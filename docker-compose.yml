@@ -7,7 +7,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      # Persist database across container restarts
+      # Persist database and WAL files across container restarts
       - load-tester-data:/home/pipeops/app/data
     environment:
       - PORT=8080

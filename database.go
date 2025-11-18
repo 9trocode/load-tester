@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"time"
 
+	"os"
+
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -42,9 +44,15 @@ type RequestMetric struct {
 }
 
 func InitDB() (*sql.DB, error) {
+	// Create data directory if it doesn't exist
+	if err := os.MkdirAll("./data", 0755); err != nil {
+		return nil, err
+	}
+
 	// Enable WAL mode for better concurrent read performance
 	// SQLite connection string with WAL mode and connection pool settings
-	db, err := sql.Open("sqlite3", "./loadtest.db?_journal_mode=WAL&_busy_timeout=5000&_foreign_keys=1")
+	// Database is stored in ./data directory for easy volume mounting
+	db, err := sql.Open("sqlite3", "./data/loadtest.db?_journal_mode=WAL&_busy_timeout=5000&_foreign_keys=1")
 	if err != nil {
 		return nil, err
 	}
