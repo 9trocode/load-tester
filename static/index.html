@@ -73,7 +73,7 @@
                 },
             };
         </script>
-        <link rel="stylesheet" href="/static/style.css" />
+        <link rel="stylesheet" href="/static/style.css?v=2.1" />
         <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     </head>
     <body>
@@ -125,22 +125,23 @@
                     <!-- CTA Section (shown when no active test) -->
                     <!-- Running Tests Notification -->
                     <div
-                        class="running-tests-notification"
+                        class="running-tests-card"
                         id="runningTestsNotification"
                         style="display: none"
                     >
-                        <div class="notification-content">
-                            <span class="notification-icon">🔄</span>
-                            <span class="notification-text">
-                                <strong id="runningTestsCount">1</strong>
-                                test(s) currently running
-                            </span>
-                            <button
-                                class="btn btn-primary btn-sm"
-                                id="viewRunningTestBtn"
+                        <div class="running-tests-header">
+                            <div class="running-tests-title">
+                                <span class="running-icon">⚡</span>
+                                <h3>Active Load Tests</h3>
+                            </div>
+                            <span
+                                class="running-tests-badge"
+                                id="runningTestsCount"
+                                >1</span
                             >
-                                View Test
-                            </button>
+                        </div>
+                        <div class="running-tests-list" id="runningTestsList">
+                            <!-- Tests will be dynamically inserted here -->
                         </div>
                     </div>
 
@@ -844,6 +845,6 @@
             </div>
         </div>
 
-        <script src="/static/app.js"></script>
+        <script src="/static/app.js?v=2.1"></script>
     </body>
 </html>

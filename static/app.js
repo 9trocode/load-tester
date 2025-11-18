@@ -1525,8 +1525,7 @@ function initializeCharts() {
   }
 }
 
-// Initialize charts and load history on page load
-// Check for running tests and show notification banner
+// Check for running tests and show improved notification card
 async function checkForRunningTestsNotification() {
   console.log("[Notification] Checking for running tests...");
 
@@ -1537,20 +1536,23 @@ async function checkForRunningTestsNotification() {
 
     const notification = document.getElementById("runningTestsNotification");
     const countElement = document.getElementById("runningTestsCount");
-    const viewButton = document.getElementById("viewRunningTestBtn");
+    const testsList = document.getElementById("runningTestsList");
 
     if (data.running_tests && data.running_tests.length > 0) {
-      // Show notification
+      // Update count badge
       countElement.textContent = data.running_tests.length;
+
+      // Clear existing list
+      testsList.innerHTML = "";
+
+      // Create test items
+      data.running_tests.forEach((test) => {
+        const testItem = createRunningTestItem(test);
+        testsList.appendChild(testItem);
+      });
+
+      // Show notification card
       notification.style.display = "block";
-
-      // Store the most recent test UUID for the view button
-      const mostRecentTest = data.running_tests[0];
-
-      // Handle view button click
-      viewButton.onclick = () => {
-        window.location.href = `/test/${mostRecentTest.test_uuid}`;
-      };
 
       console.log(
         "[Notification] Showing notification for",
@@ -1564,6 +1566,84 @@ async function checkForRunningTestsNotification() {
   } catch (error) {
     console.error("[Notification] Error checking for running tests:", error);
   }
+}
+
+// Create a running test item element
+function createRunningTestItem(test) {
+  const item = document.createElement("div");
+  item.className = "running-test-item";
+
+  // Calculate elapsed time
+  const startTime = new Date(test.started_at);
+  const now = new Date();
+  const elapsedSeconds = Math.floor((now - startTime) / 1000);
+  const elapsedTime = formatTime(elapsedSeconds);
+
+  // Calculate remaining time
+  const remainingSeconds = Math.max(0, test.duration - elapsedSeconds);
+  const remainingTime = formatTime(remainingSeconds);
+
+  item.innerHTML = `
+    <div class="running-test-header">
+      <div class="running-test-url">${maskUrl(test.host)}</div>
+      <div class="running-test-status">
+        <span class="status-dot"></span>
+        <span>Running</span>
+      </div>
+    </div>
+    <div class="running-test-details">
+      <div class="test-detail-item">
+        <span class="test-detail-icon">👥</span>
+        <span class="test-detail-value">${test.total_users}</span>
+        <span>users</span>
+      </div>
+      <div class="test-detail-item">
+        <span class="test-detail-icon">⏱️</span>
+        <span class="test-detail-value">${elapsedTime}</span>
+        <span>elapsed</span>
+      </div>
+      <div class="test-detail-item">
+        <span class="test-detail-icon">⏳</span>
+        <span class="test-detail-value">${remainingTime}</span>
+        <span>remaining</span>
+      </div>
+      <div class="test-detail-item">
+        <span class="test-detail-icon">🎯</span>
+        <span class="test-detail-value">${test.duration}s</span>
+        <span>duration</span>
+      </div>
+    </div>
+    <div class="running-test-actions">
+      <button class="btn btn-primary btn-sm view-test-btn" data-uuid="${test.test_uuid}">
+        📊 View Live Metrics
+      </button>
+    </div>
+  `;
+
+  // Add click handler to view button
+  const viewBtn = item.querySelector(".view-test-btn");
+  viewBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    window.location.href = `/test/${test.test_uuid}`;
+  });
+
+  // Make entire item clickable
+  item.addEventListener("click", () => {
+    window.location.href = `/test/${test.test_uuid}`;
+  });
+
+  return item;
+}
+
+// Helper function to format time (already exists but ensuring it's available)
+function formatTime(seconds) {
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  if (minutes < 60) return `${minutes}m ${secs}s`;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${hours}h ${mins}m`;
 }
 
 window.addEventListener("DOMContentLoaded", async () => {
