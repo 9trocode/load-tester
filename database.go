@@ -9,25 +9,28 @@ import (
 )
 
 type TestRun struct {
-	ID            int64             `json:"id"`
-	UUID          string            `json:"uuid"`
-	Host          string            `json:"host"`
-	TotalUsers    int               `json:"total_users"`
-	RampUpSec     int               `json:"ramp_up_sec"`
-	Duration      int               `json:"duration"`
-	Status        string            `json:"status"`
-	StartedAt     time.Time         `json:"started_at"`
-	CompletedAt   *time.Time        `json:"completed_at,omitempty"`
-	TotalRequests int64             `json:"total_requests"`
-	SuccessCount  int64             `json:"success_count"`
-	ErrorCount    int64             `json:"error_count"`
-	AvgLatency    float64           `json:"avg_latency"`
-	MinLatency    float64           `json:"min_latency"`
-	MaxLatency    float64           `json:"max_latency"`
-	RPS           float64           `json:"rps"`
-	Method        string            `json:"method,omitempty"`
-	Body          string            `json:"body,omitempty"`
-	Headers       map[string]string `json:"headers,omitempty"`
+	ID                    int64             `json:"id"`
+	UUID                  string            `json:"uuid"`
+	Host                  string            `json:"host"`
+	TotalUsers            int               `json:"total_users"`
+	RampUpSec             int               `json:"ramp_up_sec"`
+	Duration              int               `json:"duration"`
+	Status                string            `json:"status"`
+	StartedAt             time.Time         `json:"started_at"`
+	CompletedAt           *time.Time        `json:"completed_at,omitempty"`
+	TotalRequests         int64             `json:"total_requests"`
+	SuccessCount          int64             `json:"success_count"`
+	ErrorCount            int64             `json:"error_count"`
+	AvgLatency            float64           `json:"avg_latency"`
+	MinLatency            float64           `json:"min_latency"`
+	MaxLatency            float64           `json:"max_latency"`
+	RPS                   float64           `json:"rps"`
+	Method                string            `json:"method,omitempty"`
+	Body                  string            `json:"body,omitempty"`
+	Headers               map[string]string `json:"headers,omitempty"`
+	MaxConcurrentRequests int               `json:"max_concurrent_requests,omitempty"` // Max concurrent requests per user
+	ErrorThreshold        float64           `json:"error_threshold,omitempty"`         // Error rate threshold to trigger circuit breaker (0-100)
+	StoppedByCircuit      bool              `json:"stopped_by_circuit,omitempty"`      // Whether test was stopped by circuit breaker
 }
 
 type RequestMetric struct {

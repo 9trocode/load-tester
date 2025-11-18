@@ -146,14 +146,16 @@ func (tm *TestManager) HandleStartTest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Host      string            `json:"host"`
-		Users     int               `json:"users"`
-		RampUpSec int               `json:"ramp_up_sec"`
-		Duration  int               `json:"duration"`
-		Auth      *AuthConfig       `json:"auth,omitempty"`
-		Method    string            `json:"method,omitempty"`  // HTTP method (GET, POST, PUT, DELETE, etc.)
-		Body      string            `json:"body,omitempty"`    // Request body payload
-		Headers   map[string]string `json:"headers,omitempty"` // Custom headers
+		Host                  string            `json:"host"`
+		Users                 int               `json:"users"`
+		RampUpSec             int               `json:"ramp_up_sec"`
+		Duration              int               `json:"duration"`
+		Auth                  *AuthConfig       `json:"auth,omitempty"`
+		Method                string            `json:"method,omitempty"`                  // HTTP method (GET, POST, PUT, DELETE, etc.)
+		Body                  string            `json:"body,omitempty"`                    // Request body payload
+		Headers               map[string]string `json:"headers,omitempty"`                 // Custom headers
+		MaxConcurrentRequests int               `json:"max_concurrent_requests,omitempty"` // Max concurrent requests per user (default: 10)
+		ErrorThreshold        float64           `json:"error_threshold,omitempty"`         // Error rate % to trigger circuit breaker (default: 0 = disabled)
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -263,21 +265,40 @@ func (tm *TestManager) HandleStartTest(w http.ResponseWriter, r *http.Request) {
 	tm.lastTestStarts[clientIP] = now
 	tm.rateLimitMu.Unlock()
 
+	// Set defaults for optional fields
+	maxConcurrentRequests := req.MaxConcurrentRequests
+	if maxConcurrentRequests <= 0 {
+		maxConcurrentRequests = 10 // Default: 10 requests per second per user
+	}
+	if maxConcurrentRequests > 100 {
+		maxConcurrentRequests = 100 // Cap at 100 to prevent abuse
+	}
+
+	errorThreshold := req.ErrorThreshold
+	if errorThreshold < 0 {
+		errorThreshold = 0 // Disabled by default
+	}
+	if errorThreshold > 100 {
+		errorThreshold = 100 // Cap at 100%
+	}
+
 	// Generate UUID for this test
 	testUUID := uuid.New().String()
 
 	// Create test run
 	testRun := &TestRun{
-		UUID:       testUUID,
-		Host:       req.Host,
-		TotalUsers: req.Users,
-		RampUpSec:  req.RampUpSec,
-		Duration:   req.Duration,
-		Status:     "running",
-		StartedAt:  time.Now(),
-		Method:     req.Method,
-		Body:       req.Body,
-		Headers:    req.Headers,
+		UUID:                  testUUID,
+		Host:                  req.Host,
+		TotalUsers:            req.Users,
+		RampUpSec:             req.RampUpSec,
+		Duration:              req.Duration,
+		Status:                "running",
+		StartedAt:             time.Now(),
+		Method:                req.Method,
+		Body:                  req.Body,
+		Headers:               req.Headers,
+		MaxConcurrentRequests: maxConcurrentRequests,
+		ErrorThreshold:        errorThreshold,
 	}
 
 	testRunID, err := SaveTestRun(tm.db, testRun)
@@ -349,6 +370,15 @@ func (tm *TestManager) runLoadTest(testCtx *TestContext, clientIP string) {
 		testCtx.IsRunning.Store(false)
 		testUUID := testCtx.TestRun.UUID
 
+		// Log if test was stopped by circuit breaker
+		if testCtx.TestRun.StoppedByCircuit {
+			slog.Warn("Test stopped by circuit breaker",
+				"test_uuid", testUUID,
+				"error_threshold", testCtx.TestRun.ErrorThreshold,
+				"error_count", testCtx.Metrics.ErrorCount,
+				"total_requests", testCtx.Metrics.TotalRequests)
+		}
+
 		// Remove from active tests
 		tm.mu.Lock()
 		delete(tm.activeTests, testUUID)
@@ -405,7 +435,7 @@ func (tm *TestManager) runLoadTest(testCtx *TestContext, clientIP string) {
 							return
 						default:
 							wg.Add(1)
-							go tm.runUser(ctx, testRun.ID, testRun.Host, metrics, &wg, stopChan, authConfig, testRun.Method, testRun.Body, testRun.Headers)
+							go tm.runUser(ctx, testRun.ID, testRun.Host, metrics, &wg, stopChan, authConfig, testRun.Method, testRun.Body, testRun.Headers, testRun.MaxConcurrentRequests)
 							usersStarted++
 						}
 					}
@@ -422,9 +452,49 @@ func (tm *TestManager) runLoadTest(testCtx *TestContext, clientIP string) {
 							return
 						default:
 							wg.Add(1)
-							go tm.runUser(ctx, testRun.ID, testRun.Host, metrics, &wg, stopChan, authConfig, testRun.Method, testRun.Body, testRun.Headers)
+							go tm.runUser(ctx, testRun.ID, testRun.Host, metrics, &wg, stopChan, authConfig, testRun.Method, testRun.Body, testRun.Headers, testRun.MaxConcurrentRequests)
 							usersStarted++
 						}
+					}
+				}
+			}
+		}
+	}()
+
+	// Circuit breaker monitoring goroutine
+	circuitBreakerTicker := time.NewTicker(2 * time.Second) // Check every 2 seconds
+	defer circuitBreakerTicker.Stop()
+
+	go func() {
+		if testRun.ErrorThreshold <= 0 {
+			return // Circuit breaker disabled
+		}
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-circuitBreakerTicker.C:
+				metrics.mu.RLock()
+				totalReqs := metrics.TotalRequests
+				errorCount := metrics.ErrorCount
+				metrics.mu.RUnlock()
+
+				// Only check after we have at least 10 requests
+				if totalReqs >= 10 {
+					errorRate := (float64(errorCount) / float64(totalReqs)) * 100
+
+					if errorRate >= testRun.ErrorThreshold {
+						slog.Warn("Circuit breaker triggered",
+							"test_uuid", testRun.UUID,
+							"error_rate", errorRate,
+							"threshold", testRun.ErrorThreshold,
+							"total_requests", totalReqs,
+							"errors", errorCount)
+
+						testRun.StoppedByCircuit = true
+						testCtx.Cancel() // Stop the test
+						return
 					}
 				}
 			}
@@ -445,7 +515,7 @@ func (tm *TestManager) runLoadTest(testCtx *TestContext, clientIP string) {
 	}
 }
 
-func (tm *TestManager) runUser(ctx context.Context, testRunID int64, host string, metrics *MetricsCollector, wg *sync.WaitGroup, stopChan <-chan struct{}, authConfig *AuthConfig, method string, body string, headers map[string]string) {
+func (tm *TestManager) runUser(ctx context.Context, testRunID int64, host string, metrics *MetricsCollector, wg *sync.WaitGroup, stopChan <-chan struct{}, authConfig *AuthConfig, method string, body string, headers map[string]string, maxConcurrentRequests int) {
 	defer wg.Done()
 
 	client := &http.Client{
@@ -455,7 +525,10 @@ func (tm *TestManager) runUser(ctx context.Context, testRunID int64, host string
 	// Normalize host to a valid URL
 	targetURL := normalizeHost(host)
 
-	ticker := time.NewTicker(100 * time.Millisecond) // 10 requests per second per user
+	// Calculate ticker interval based on max concurrent requests per second
+	// maxConcurrentRequests requests per second = 1000ms / maxConcurrentRequests per interval
+	tickerInterval := time.Duration(1000/maxConcurrentRequests) * time.Millisecond
+	ticker := time.NewTicker(tickerInterval)
 	defer ticker.Stop()
 
 	for {
@@ -886,20 +959,21 @@ func (tm *TestManager) HandleGetMetrics(w http.ResponseWriter, r *http.Request) 
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"total_requests": totalRequests,
-		"success_count":  successCount,
-		"error_count":    errorCount,
-		"avg_latency":    avgLatency,
-		"min_latency":    minLatency,
-		"max_latency":    maxLatency,
-		"p50_latency":    p50Latency,
-		"p95_latency":    p95Latency,
-		"p99_latency":    p99Latency,
-		"error_rate":     errorRate,
-		"avg_rps":        avgRPS,
-		"rps":            rps,
-		"duration":       duration,
-		"is_running":     testCtx.IsRunning.Load(),
+		"total_requests":     totalRequests,
+		"success_count":      successCount,
+		"error_count":        errorCount,
+		"avg_latency":        avgLatency,
+		"min_latency":        minLatency,
+		"max_latency":        maxLatency,
+		"p50_latency":        p50Latency,
+		"p95_latency":        p95Latency,
+		"p99_latency":        p99Latency,
+		"error_rate":         errorRate,
+		"avg_rps":            avgRPS,
+		"rps":                rps,
+		"duration":           duration,
+		"is_running":         testCtx.IsRunning.Load(),
+		"stopped_by_circuit": testCtx.TestRun.StoppedByCircuit,
 	})
 }
 

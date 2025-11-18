@@ -47,7 +47,7 @@
                 },
             };
         </script>
-        <link rel="stylesheet" href="/static/style.css?v=15" />
+        <link rel="stylesheet" href="/static/style.css?v=22" />
         <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     </head>
     <body>
@@ -124,6 +124,18 @@
                             <span class="banner-icon">↻</span>
                             <span class="banner-text"
                                 >Reconnected to running test</span
+                            >
+                        </div>
+
+                        <!-- Circuit Breaker Warning Banner -->
+                        <div
+                            class="circuit-breaker-banner"
+                            id="circuitBreakerBanner"
+                            style="display: none"
+                        >
+                            <span class="banner-icon">⚠</span>
+                            <span class="banner-text"
+                                >Test stopped: Error threshold exceeded</span
                             >
                         </div>
 
@@ -441,6 +453,42 @@
                             </div>
                         </div>
 
+                        <div class="form-row">
+                            <div class="form-field">
+                                <label for="maxConcurrentRequests">Requests Per Second (per user)</label>
+                                <input
+                                    type="number"
+                                    id="maxConcurrentRequests"
+                                    name="maxConcurrentRequests"
+                                    min="1"
+                                    max="100"
+                                    step="1"
+                                    value="10"
+                                    class="input"
+                                />
+                                <div class="form-hint">
+                                    1-100 requests/sec per user (default: 10)
+                                </div>
+                            </div>
+
+                            <div class="form-field">
+                                <label for="errorThreshold">Error Threshold (%)</label>
+                                <input
+                                    type="number"
+                                    id="errorThreshold"
+                                    name="errorThreshold"
+                                    min="0"
+                                    max="100"
+                                    step="1"
+                                    value="0"
+                                    class="input"
+                                />
+                                <div class="form-hint">
+                                    Stop test if error rate exceeds % (0 = disabled)
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Advanced Options Toggle -->
                         <div style="margin-bottom: 1.5rem">
                             <button
@@ -703,6 +751,6 @@
             </div>
         </div>
 
-        <script src="/static/app.js?v=15"></script>
+        <script src="/static/app.js?v=22"></script>
     </body>
 </html>

@@ -316,52 +316,36 @@ function maskUrl(url, maskLevel = CURRENT_MASK_LEVEL) {
       urlObj = new URL("https://" + url);
     } catch (e2) {
       // If all parsing fails, return masked placeholder
-      return maskLevel === URL_MASK_LEVEL.FULL ? url : "***";
+      return "***";
     }
   }
 
   const protocol = urlObj.protocol;
   const hostname = urlObj.hostname;
   const port = urlObj.port ? `:${urlObj.port}` : "";
-  const pathname = urlObj.pathname;
-  const search = urlObj.search;
 
-  // Apply masking based on level
-  switch (maskLevel) {
-    case URL_MASK_LEVEL.FULL:
-      // Show everything
-      return url;
-
-    case URL_MASK_LEVEL.DOMAIN:
-      // Show protocol and full domain only (default for publishing)
-      return `${protocol}//${hostname}${port}`;
-
-    case URL_MASK_LEVEL.PARTIAL:
-      // Mask subdomains, show only main domain and TLD
-      const parts = hostname.split(".");
-      if (parts.length > 2) {
-        // Has subdomains: api.example.com -> ***.example.com
-        const mainDomain = parts.slice(-2).join(".");
-        return `${protocol}//***${port ? ":" + port.replace(/:\d+/, ":***") : ""}/${mainDomain}`;
-      } else {
-        // No subdomains: example.com -> example.com
-        return `${protocol}//${hostname}${port}`;
+  // Helper function to mask a string showing only first and last few chars
+  function maskString(str, showFirst = 3, showLast = 3) {
+    if (str.length <= showFirst + showLast) {
+      // If string is too short, show first few chars only
+      if (str.length <= showFirst) {
+        return str;
       }
-
-    case URL_MASK_LEVEL.MINIMAL:
-      // Show only top-level domain
-      const domainParts = hostname.split(".");
-      const tld = domainParts[domainParts.length - 1];
-      return `${protocol}//***${port ? ":***" : ""}.${tld}`;
-
-    case URL_MASK_LEVEL.HIDDEN:
-      // Hide everything
-      return "***://***";
-
-    default:
-      // Fallback to DOMAIN level
-      return `${protocol}//${hostname}${port}`;
+      return str.substring(0, showFirst) + "***";
+    }
+    return (
+      str.substring(0, showFirst) + "***" + str.substring(str.length - showLast)
+    );
   }
+
+  // Always mask URLs by default - show first 3 and last 3 chars of hostname
+  const maskedHostname = maskString(hostname, 3, 3);
+
+  // Mask port if present
+  const maskedPort = port ? ":***" : "";
+
+  // Return masked URL with protocol
+  return `${protocol}//${maskedHostname}${maskedPort}`;
 }
 
 // Additional masking utilities
@@ -421,6 +405,8 @@ function resetForm() {
   document.getElementById("users").value = "10";
   document.getElementById("rampUp").value = "5";
   document.getElementById("duration").value = "30";
+  document.getElementById("maxConcurrentRequests").value = "10";
+  document.getElementById("errorThreshold").value = "0";
   document.getElementById("method").value = "GET";
   document.getElementById("body").value = "";
   document.getElementById("bodyField").style.display = "none";
@@ -906,6 +892,12 @@ document.getElementById("testForm").addEventListener("submit", async (e) => {
     }
   }
 
+  // Get optional performance and circuit breaker settings
+  const maxConcurrentRequests =
+    parseInt(document.getElementById("maxConcurrentRequests").value) || 10;
+  const errorThreshold =
+    parseInt(document.getElementById("errorThreshold").value) || 0;
+
   const requestBody = { host, users, ramp_up_sec: rampUp, duration };
   if (auth) {
     requestBody.auth = auth;
@@ -918,6 +910,12 @@ document.getElementById("testForm").addEventListener("submit", async (e) => {
   }
   if (customHeaders) {
     requestBody.headers = customHeaders;
+  }
+  if (maxConcurrentRequests > 0 && maxConcurrentRequests !== 10) {
+    requestBody.max_concurrent_requests = maxConcurrentRequests;
+  }
+  if (errorThreshold > 0) {
+    requestBody.error_threshold = errorThreshold;
   }
 
   try {
@@ -1036,6 +1034,17 @@ function startMetricsPolling() {
         console.log("[Polling] Test completed, stopping polling");
         stopMetricsPolling();
         stopTimeSeriesPolling();
+
+        // Check if test was stopped by circuit breaker
+        if (metrics.stopped_by_circuit) {
+          console.log("[Polling] Test stopped by circuit breaker");
+          const circuitBreakerBanner = document.getElementById(
+            "circuitBreakerBanner",
+          );
+          if (circuitBreakerBanner) {
+            circuitBreakerBanner.style.display = "flex";
+          }
+        }
 
         // Hide last updated indicator
         const lastUpdatedEl = document.getElementById("lastUpdated");
