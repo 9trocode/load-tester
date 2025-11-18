@@ -193,7 +193,7 @@ export DB_PATH=/path/to/your/database.db
 
 ### Docker Deployment
 
-When running in Docker, the database is stored at `/app/data/loadtest.db` and persisted via volume mount:
+When running in Docker, the database is stored at `/home/pipeops/app/data/loadtest.db` and persisted via volume mount:
 
 ```bash
 # Using docker-compose (recommended)
@@ -202,8 +202,8 @@ docker-compose up -d
 # Manual docker run with volume
 docker run -d \
   -p 8080:8080 \
-  -v load-tester-data:/app/data \
-  -e DB_PATH=/app/data/loadtest.db \
+  -v load-tester-data:/home/pipeops/app/data \
+  -e DB_PATH=/home/pipeops/app/data/loadtest.db \
   pipeops-load-tester
 ```
 

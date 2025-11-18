@@ -38,7 +38,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
-WORKDIR /app
+WORKDIR /home/pipeops/app
 
 # Copy binary from builder stage
 COPY --from=builder /app/load-tester .
@@ -47,9 +47,7 @@ COPY --from=builder /app/load-tester .
 COPY --from=builder /app/static ./static
 
 # Create directory for database
-RUN mkdir -p /app/data
-
-# USER 1000
+RUN mkdir -p /home/pipeops/app/data
 
 # Expose port
 EXPOSE 8080
@@ -58,10 +56,9 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:8080 || exit 1
 
-# Set environm
-# ent variables
+# Set environment variables
 ENV PORT=8080
-ENV DB_PATH=/app/data/loadtest.db
+ENV DB_PATH=/home/pipeops/app/data/loadtest.db
 
 # Run the application
 CMD ["./load-tester"]
