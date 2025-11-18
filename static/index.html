@@ -73,7 +73,7 @@
                 },
             };
         </script>
-        <link rel="stylesheet" href="/static/style.css?v=2.3" />
+        <link rel="stylesheet" href="/static/style.css?v=2.4" />
         <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     </head>
     <body>
@@ -449,8 +449,9 @@
                                 />
                                 <div class="form-hint">
                                     Supports URLs, IP addresses, IP:port,
-                                    hostname:port. Uses HTTPS by default if no
-                                    protocol specified.
+                                    hostname:port. Uses HTTPS for plain domains,
+                                    HTTP for host:port format (unless protocol
+                                    specified).
                                 </div>
                             </div>
 

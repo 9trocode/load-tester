@@ -992,7 +992,13 @@ function normalizeUrl(url) {
     return url;
   }
 
-  // Add https:// by default
+  // If it contains a port (host:port format), use http://
+  // This is because explicit ports usually indicate custom setups (often HTTP)
+  if (url.match(/:\d+/)) {
+    return "http://" + url;
+  }
+
+  // For plain domains/IPs without ports, use https:// by default
   return "https://" + url;
 }
 
