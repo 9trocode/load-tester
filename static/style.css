@@ -891,7 +891,7 @@ select:focus {
 
 /* Modal - Compact */
 .modal-overlay {
-    display: none;
+    display: flex;
     position: fixed;
     top: 0;
     left: 0;
@@ -902,14 +902,24 @@ select:focus {
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    padding: 0;
+    padding: 1rem;
+    visibility: hidden;
+    opacity: 0;
+    transition:
+        opacity 0.2s ease,
+        visibility 0.2s ease;
+}
+
+.modal-overlay[style*="display: flex"] {
+    visibility: visible;
+    opacity: 1;
 }
 
 .modal {
     background: var(--pipeops-surface);
     border-radius: 8px;
     max-width: 500px;
-    width: 85%;
+    width: 100%;
     max-height: 85vh;
     height: auto;
     display: flex;
@@ -917,7 +927,6 @@ select:focus {
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
     overflow: hidden;
     position: relative;
-    margin: auto;
 }
 
 [data-theme="dark"] .modal {
@@ -1138,6 +1147,7 @@ select:focus {
 
     /* Modal adjustments for tablet */
     .modal {
+        max-width: 500px;
         width: 95%;
         max-height: 90vh;
     }
