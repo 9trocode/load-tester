@@ -1876,16 +1876,14 @@ window.addEventListener("DOMContentLoaded", async () => {
       const data = await response.json();
       currentTestId = data.test_uuid; // Use UUID instead of numeric ID
 
-      // Save test UUID to localStorage only (don't navigate to test page)
+      // Save test UUID and navigate to test page
       saveTestUUIDToStorage(currentTestId);
+      setTestUUIDInURL(currentTestId);
 
       closeTestModal();
 
-      // Show success notification and stay on homepage
-      showTestStartedNotification(currentTestId, host);
-
-      // Refresh the running tests notification to show the new test
-      await checkForRunningTestsNotification();
+      // Navigate to test page immediately
+      window.location.href = `/test/${currentTestId}`;
     } catch (error) {
       alert("Error starting test: " + error.message);
     }
