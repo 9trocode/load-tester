@@ -66,6 +66,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 
 # Set environment variables
 ENV PORT=8080
+ENV DB_PATH=/home/pipeops/app/data/loadtest.db
 
 # Run the application
 CMD ["./load-tester"]

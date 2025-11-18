@@ -44,15 +44,37 @@ type RequestMetric struct {
 }
 
 func InitDB() (*sql.DB, error) {
+	// Get database path from environment variable or use default
+	dbPath := os.Getenv("DB_PATH")
+	if dbPath == "" {
+		dbPath = "./data/loadtest.db"
+	}
+
+	// Extract directory from database path
+	dbDir := "./data"
+	if dbPath != "./data/loadtest.db" {
+		// If custom path is provided, extract directory
+		lastSlash := -1
+		for i := len(dbPath) - 1; i >= 0; i-- {
+			if dbPath[i] == '/' {
+				lastSlash = i
+				break
+			}
+		}
+		if lastSlash > 0 {
+			dbDir = dbPath[:lastSlash]
+		}
+	}
+
 	// Create data directory if it doesn't exist
-	if err := os.MkdirAll("./data", 0755); err != nil {
+	if err := os.MkdirAll(dbDir, 0755); err != nil {
 		return nil, err
 	}
 
 	// Enable WAL mode for better concurrent read performance
 	// SQLite connection string with WAL mode and connection pool settings
-	// Database is stored in ./data directory for easy volume mounting
-	db, err := sql.Open("sqlite3", "./data/loadtest.db?_journal_mode=WAL&_busy_timeout=5000&_foreign_keys=1")
+	// Database path can be configured via DB_PATH environment variable
+	db, err := sql.Open("sqlite3", dbPath+"?_journal_mode=WAL&_busy_timeout=5000&_foreign_keys=1")
 	if err != nil {
 		return nil, err
 	}

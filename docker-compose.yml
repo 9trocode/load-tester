@@ -11,6 +11,7 @@ services:
       - load-tester-data:/home/pipeops/app/data
     environment:
       - PORT=8080
+      - DB_PATH=/home/pipeops/app/data/loadtest.db
       - TZ=UTC
     restart: unless-stopped
     healthcheck:
