@@ -49,6 +49,8 @@ COPY --from=builder /app/static ./static
 # Create directory for database
 RUN mkdir -p /app/data
 
+USER 1000
+
 # Expose port
 EXPOSE 8080
 
