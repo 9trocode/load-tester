@@ -1118,6 +1118,72 @@ select:focus {
 }
 
 /* Responsive - Compact */
+/* Running Tests Notification */
+.running-tests-notification {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+    animation: slideDown 0.3s ease-out;
+}
+
+.notification-content {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    justify-content: space-between;
+}
+
+.notification-icon {
+    font-size: 1.5rem;
+    animation: spin 2s linear infinite;
+}
+
+.notification-text {
+    flex: 1;
+    color: white;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.notification-text strong {
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+.running-tests-notification .btn {
+    white-space: nowrap;
+    background: white;
+    color: var(--pipeops-primary);
+    border-color: white;
+}
+
+.running-tests-notification .btn:hover {
+    background: rgba(255, 255, 255, 0.9);
+    transform: translateY(-1px);
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 @media (max-width: 768px) {
     .app-main {
         padding: 0.5rem;
@@ -1307,6 +1373,24 @@ select:focus {
 
     #advancedOptions {
         margin-bottom: 1rem;
+    }
+
+    .running-tests-notification {
+        padding: 0.75rem 1rem;
+    }
+
+    .notification-content {
+        flex-direction: column;
+        gap: 0.75rem;
+        align-items: stretch;
+    }
+
+    .notification-text {
+        text-align: center;
+    }
+
+    .running-tests-notification .btn {
+        width: 100%;
     }
 
     .overview-stats {

@@ -59,7 +59,7 @@ async function checkAndResumeTest() {
     return true;
   }
 
-  // Priority 2: localStorage
+  // Priority 2: localStorage (only if on homepage)
   testUUID = getTestUUIDFromStorage();
   console.log("[Resume] localStorage test_uuid:", testUUID);
 
@@ -79,25 +79,10 @@ async function checkAndResumeTest() {
     }
   }
 
-  // Priority 3: Check for any running tests
-  console.log("[Resume] Checking server for running tests...");
-  try {
-    const response = await fetch("/api/running");
-    const data = await response.json();
-    console.log("[Resume] Server running tests:", data);
-
-    if (data.running_tests && data.running_tests.length > 0) {
-      // Resume the most recent running test
-      const mostRecent = data.running_tests[0];
-      console.log("[Resume] Found running test:", mostRecent.test_uuid);
-      await resumeTest(mostRecent.test_uuid);
-      return true;
-    }
-  } catch (error) {
-    console.error("[Resume] Error checking for running tests:", error);
-  }
-
-  console.log("[Resume] No running tests found");
+  // Do NOT auto-resume tests from server - let users stay on homepage
+  console.log(
+    "[Resume] No test to resume (not forcing users to running tests)",
+  );
   return false;
 }
 
@@ -1541,6 +1526,46 @@ function initializeCharts() {
 }
 
 // Initialize charts and load history on page load
+// Check for running tests and show notification banner
+async function checkForRunningTestsNotification() {
+  console.log("[Notification] Checking for running tests...");
+
+  try {
+    const response = await fetch("/api/running");
+    const data = await response.json();
+    console.log("[Notification] Running tests:", data);
+
+    const notification = document.getElementById("runningTestsNotification");
+    const countElement = document.getElementById("runningTestsCount");
+    const viewButton = document.getElementById("viewRunningTestBtn");
+
+    if (data.running_tests && data.running_tests.length > 0) {
+      // Show notification
+      countElement.textContent = data.running_tests.length;
+      notification.style.display = "block";
+
+      // Store the most recent test UUID for the view button
+      const mostRecentTest = data.running_tests[0];
+
+      // Handle view button click
+      viewButton.onclick = () => {
+        window.location.href = `/test/${mostRecentTest.test_uuid}`;
+      };
+
+      console.log(
+        "[Notification] Showing notification for",
+        data.running_tests.length,
+        "running test(s)",
+      );
+    } else {
+      notification.style.display = "none";
+      console.log("[Notification] No running tests to show");
+    }
+  } catch (error) {
+    console.error("[Notification] Error checking for running tests:", error);
+  }
+}
+
 window.addEventListener("DOMContentLoaded", async () => {
   console.log("[Init] Page loaded, initializing...");
 
@@ -1937,6 +1962,9 @@ window.addEventListener("DOMContentLoaded", async () => {
   if (!resumed && !currentTestId) {
     console.log("[Init] Showing CTA");
     domCache.ctaSection.style.display = "block";
+
+    // Check for running tests on server and show notification
+    await checkForRunningTestsNotification();
   } else {
     console.log("[Init] Test active, hiding CTA");
   }

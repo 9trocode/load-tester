@@ -119,6 +119,27 @@
             <main class="app-main">
                 <div class="content-layout">
                     <!-- CTA Section (shown when no active test) -->
+                    <!-- Running Tests Notification -->
+                    <div
+                        class="running-tests-notification"
+                        id="runningTestsNotification"
+                        style="display: none"
+                    >
+                        <div class="notification-content">
+                            <span class="notification-icon">🔄</span>
+                            <span class="notification-text">
+                                <strong id="runningTestsCount">1</strong>
+                                test(s) currently running
+                            </span>
+                            <button
+                                class="btn btn-primary btn-sm"
+                                id="viewRunningTestBtn"
+                            >
+                                View Test
+                            </button>
+                        </div>
+                    </div>
+
                     <section class="card cta-card" id="ctaSection">
                         <div class="cta-content">
                             <h2>Start Your First Load Test</h2>
