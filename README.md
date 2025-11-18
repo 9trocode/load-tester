@@ -156,7 +156,38 @@ To view advanced metrics:
 
 ## Database
 
-The application uses SQLite and creates a `loadtest.db` file in the project directory. This file stores all test runs and metrics.
+The application uses SQLite to store all test runs and metrics. By default, it creates a `loadtest.db` file in the `./data` directory.
+
+### Configuration
+
+You can customize the database location using the `DB_PATH` environment variable:
+
+```bash
+# Default location (if DB_PATH is not set)
+./data/loadtest.db
+
+# Custom location
+export DB_PATH=/path/to/your/database.db
+./load-tester
+```
+
+### Docker Deployment
+
+When running in Docker, the database is stored at `/home/pipeops/app/data/loadtest.db` and persisted via volume mount:
+
+```bash
+# Using docker-compose (recommended)
+docker-compose up -d
+
+# Manual docker run with volume
+docker run -d \
+  -p 8080:8080 \
+  -v load-tester-data:/home/pipeops/app/data \
+  -e DB_PATH=/home/pipeops/app/data/loadtest.db \
+  pipeops-load-tester
+```
+
+The volume mount ensures your test history persists across container restarts and upgrades.
 
 ## PDF Reports
 
