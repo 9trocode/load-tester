@@ -222,7 +222,7 @@ body {
     flex-direction: column;
     gap: 0;
     min-height: 0;
-    height: auto;
+    height: 100%;
 }
 
 /* Form Section Dividers */
