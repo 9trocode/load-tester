@@ -49,7 +49,7 @@ COPY --from=builder /app/static ./static
 # Create directory for database
 RUN mkdir -p /app/data
 
-USER 1000
+# USER 1000
 
 # Expose port
 EXPOSE 8080
@@ -58,7 +58,8 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:8080 || exit 1
 
-# Set environment variables
+# Set environm
+# ent variables
 ENV PORT=8080
 ENV DB_PATH=/app/data/loadtest.db
 
