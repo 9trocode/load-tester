@@ -3,21 +3,38 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>PipeOps Load Tester - Simulate Real Traffic & Test Performance</title>
+        <title>
+            PipeOps Load Tester - Simulate Real Traffic & Test Performance
+        </title>
 
         <!-- SEO Meta Tags -->
-        <meta name="description" content="Open-source load testing tool to simulate real user traffic on your services. Real-time metrics, custom headers, authentication support, and live performance monitoring." />
-        <meta name="keywords" content="load testing, performance testing, load tester, stress testing, API testing, web testing, real-time metrics, open source" />
+        <meta
+            name="description"
+            content="Open-source load testing tool to simulate real user traffic on your services. Real-time metrics, custom headers, authentication support, and live performance monitoring."
+        />
+        <meta
+            name="keywords"
+            content="load testing, performance testing, load tester, stress testing, API testing, web testing, real-time metrics, open source"
+        />
         <meta name="author" content="PipeOps" />
         <meta name="robots" content="index, follow" />
         <link rel="canonical" href="https://loadtester.pipeops.io" />
 
         <!-- Open Graph Meta Tags -->
-        <meta property="og:title" content="PipeOps Load Tester - Simulate Real Traffic & Test Performance" />
-        <meta property="og:description" content="Open-source load testing tool to simulate real user traffic on your services. Real-time metrics, custom headers, authentication support, and live performance monitoring." />
+        <meta
+            property="og:title"
+            content="PipeOps Load Tester - Simulate Real Traffic & Test Performance"
+        />
+        <meta
+            property="og:description"
+            content="Open-source load testing tool to simulate real user traffic on your services. Real-time metrics, custom headers, authentication support, and live performance monitoring."
+        />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://loadtester.pipeops.io" />
-        <meta property="og:image" content="https://loadtester.pipeops.io/og-image.png" />
+        <meta
+            property="og:image"
+            content="https://loadtester.pipeops.io/og-image.png"
+        />
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
         <meta property="og:site_name" content="PipeOps Load Tester" />
@@ -25,9 +42,18 @@
 
         <!-- Twitter Card Meta Tags -->
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="PipeOps Load Tester - Simulate Real Traffic & Test Performance" />
-        <meta name="twitter:description" content="Open-source load testing tool to simulate real user traffic on your services. Real-time metrics, custom headers, authentication support, and live performance monitoring." />
-        <meta name="twitter:image" content="https://loadtester.pipeops.io/twitter-card.png" />
+        <meta
+            name="twitter:title"
+            content="PipeOps Load Tester - Simulate Real Traffic & Test Performance"
+        />
+        <meta
+            name="twitter:description"
+            content="Open-source load testing tool to simulate real user traffic on your services. Real-time metrics, custom headers, authentication support, and live performance monitoring."
+        />
+        <meta
+            name="twitter:image"
+            content="https://loadtester.pipeops.io/twitter-card.png"
+        />
         <meta name="twitter:site" content="@pipeops" />
         <meta name="twitter:creator" content="@pipeops" />
 
@@ -47,7 +73,7 @@
                 },
             };
         </script>
-        <link rel="stylesheet" href="/static/style.css?v=22" />
+        <link rel="stylesheet" href="/static/style.css" />
         <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     </head>
     <body>
@@ -395,7 +421,9 @@
                                 class="input"
                             />
                             <div class="form-hint">
-                                Supports URLs, IP addresses, IP:port, hostname:port. Uses HTTPS by default if no protocol specified.
+                                Supports URLs, IP addresses, IP:port,
+                                hostname:port. Uses HTTPS by default if no
+                                protocol specified.
                             </div>
                         </div>
 
@@ -455,7 +483,9 @@
 
                         <div class="form-row">
                             <div class="form-field">
-                                <label for="maxConcurrentRequests">Requests Per Second (per user)</label>
+                                <label for="maxConcurrentRequests"
+                                    >Requests Per Second (per user)</label
+                                >
                                 <input
                                     type="number"
                                     id="maxConcurrentRequests"
@@ -472,7 +502,9 @@
                             </div>
 
                             <div class="form-field">
-                                <label for="errorThreshold">Error Threshold (%)</label>
+                                <label for="errorThreshold"
+                                    >Error Threshold (%)</label
+                                >
                                 <input
                                     type="number"
                                     id="errorThreshold"
@@ -484,7 +516,8 @@
                                     class="input"
                                 />
                                 <div class="form-hint">
-                                    Stop test if error rate exceeds % (0 = disabled)
+                                    Stop test if error rate exceeds % (0 =
+                                    disabled)
                                 </div>
                             </div>
                         </div>
@@ -720,7 +753,6 @@
                                 </div>
                             </div>
                         </div>
-                        </div>
                         <!-- End Advanced Options Container -->
 
                         <div class="action-buttons-container">
@@ -751,6 +783,6 @@
             </div>
         </div>
 
-        <script src="/static/app.js?v=22"></script>
+        <script src="/static/app.js"></script>
     </body>
 </html>

@@ -273,6 +273,725 @@ function throttle(func, delay) {
   };
 }
 
+function formatTime(seconds) {
+  if (seconds < 60) {
+    return seconds + "s";
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return minutes + "m " + remainingSeconds + "s";
+}
+
+const updateMetricsThrottled = throttle(function (metrics) {
+  if (!metrics) {
+    console.error("[Metrics] No metrics data received");
+    return;
+  }
+
+  console.log("[Metrics] Updating with data:", {
+    total_requests: metrics.total_requests,
+    rps: metrics.rps,
+    is_running: metrics.is_running,
+  });
+
+  const lastUpdatedEl = document.getElementById("lastUpdated");
+  const lastUpdatedTimeEl = document.getElementById("lastUpdatedTime");
+  if (lastUpdatedEl && lastUpdatedTimeEl) {
+    lastUpdatedEl.style.display = "block";
+    const now = new Date();
+    lastUpdatedTimeEl.textContent = now.toLocaleTimeString();
+  }
+
+  if (testStartTime && testDurationSeconds) {
+    const elapsedSeconds = Math.floor((Date.now() - testStartTime) / 1000);
+    const remainingSeconds = Math.max(0, testDurationSeconds - elapsedSeconds);
+    const progressPercent = Math.min(
+      100,
+      (elapsedSeconds / testDurationSeconds) * 100,
+    );
+
+    if (domCache.elapsedTime) {
+      domCache.elapsedTime.textContent = formatTime(elapsedSeconds);
+    }
+    if (domCache.remainingTime) {
+      domCache.remainingTime.textContent = formatTime(remainingSeconds);
+    }
+    if (domCache.progressPercentage) {
+      domCache.progressPercentage.textContent =
+        progressPercent.toFixed(1) + "%";
+    }
+    if (domCache.progressBarFill) {
+      domCache.progressBarFill.style.width = progressPercent + "%";
+    }
+  }
+
+  requestAnimationFrame(() => {
+    try {
+      if (domCache.totalRequests) {
+        domCache.totalRequests.textContent = (
+          metrics.total_requests || 0
+        ).toLocaleString();
+      }
+
+      const successRate =
+        metrics.total_requests > 0
+          ? ((metrics.success_count / metrics.total_requests) * 100).toFixed(1)
+          : 0;
+      if (domCache.successRate) {
+        domCache.successRate.textContent = successRate + "%";
+      }
+
+      if (domCache.rps) {
+        domCache.rps.textContent =
+          (metrics.rps || 0).toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }) + " req/s";
+      }
+      if (domCache.avgLatency) {
+        domCache.avgLatency.textContent =
+          (metrics.avg_latency || 0).toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }) + " ms";
+      }
+      if (domCache.minLatency) {
+        domCache.minLatency.textContent =
+          (metrics.min_latency || 0).toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }) + " ms";
+      }
+      if (domCache.maxLatency) {
+        domCache.maxLatency.textContent =
+          (metrics.max_latency || 0).toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }) + " ms";
+      }
+
+      if (domCache.p50Latency) {
+        domCache.p50Latency.textContent =
+          (metrics.p50_latency || 0).toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }) + " ms";
+      }
+      if (domCache.p95Latency) {
+        domCache.p95Latency.textContent =
+          (metrics.p95_latency || 0).toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }) + " ms";
+      }
+      if (domCache.p99Latency) {
+        domCache.p99Latency.textContent =
+          (metrics.p99_latency || 0).toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }) + " ms";
+      }
+      if (domCache.errorRate) {
+        domCache.errorRate.textContent =
+          (metrics.error_rate || 0).toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }) + "%";
+      }
+      if (domCache.totalErrors) {
+        domCache.totalErrors.textContent = (
+          metrics.error_count || 0
+        ).toLocaleString();
+      }
+      if (domCache.avgRPS) {
+        domCache.avgRPS.textContent =
+          (metrics.avg_rps || 0).toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }) + " req/s";
+      }
+
+      console.log("[Metrics] ✅ DOM updated successfully");
+    } catch (error) {
+      console.error("[Metrics] Error updating DOM:", error);
+    }
+  });
+}, 100); // Throttle to max 10 updates per second
+
+function updateMetrics(metrics) {
+  updateMetricsThrottled(metrics);
+}
+
+const updateChartsThrottled = throttle(function (timeSeries) {
+  if (!timeSeries || timeSeries.length === 0) {
+    console.log("[Charts] No time series data to display");
+    return;
+  }
+
+  console.log("[Charts] Updating with", timeSeries.length, "data points");
+
+  const recentData = timeSeries.slice(-60);
+
+  const dataLength = recentData.length;
+  const labels = new Array(dataLength);
+  const rpsData = new Array(dataLength);
+  const latencyData = new Array(dataLength);
+  const successRateData = new Array(dataLength);
+
+  for (let i = 0; i < dataLength; i++) {
+    const point = recentData[i];
+    labels[i] = new Date(point.timestamp).toLocaleTimeString();
+    rpsData[i] = point.rps;
+    latencyData[i] = point.avg_latency;
+    successRateData[i] = point.success_rate;
+  }
+
+  requestAnimationFrame(() => {
+    try {
+      if (throughputChart) {
+        throughputChart.data.labels = labels;
+        throughputChart.data.datasets[0].data = rpsData;
+        throughputChart.update("none");
+      } else {
+        console.warn("[Charts] Throughput chart not initialized");
+      }
+
+      if (latencyChart) {
+        latencyChart.data.labels = labels;
+        latencyChart.data.datasets[0].data = latencyData;
+        latencyChart.update("none");
+      } else {
+        console.warn("[Charts] Latency chart not initialized");
+      }
+
+      if (successRateChart) {
+        successRateChart.data.labels = labels;
+        successRateChart.data.datasets[0].data = successRateData;
+        successRateChart.update("none");
+      } else {
+        console.warn("[Charts] Success rate chart not initialized");
+      }
+
+      console.log("[Charts] ✅ Charts updated successfully");
+    } catch (error) {
+      console.error("[Charts] Error updating charts:", error);
+    }
+  });
+}, 500); // Throttle to max 2 updates per second
+
+function updateCharts(timeSeries) {
+  updateChartsThrottled(timeSeries);
+}
+
+function resetCharts() {
+  if (throughputChart) {
+    throughputChart.data.labels = [];
+    throughputChart.data.datasets[0].data = [];
+    throughputChart.update();
+  }
+  if (latencyChart) {
+    latencyChart.data.labels = [];
+    latencyChart.data.datasets[0].data = [];
+    latencyChart.update();
+  }
+  if (successRateChart) {
+    successRateChart.data.labels = [];
+    successRateChart.data.datasets[0].data = [];
+    successRateChart.update();
+  }
+}
+
+function startMetricsPolling() {
+  console.log("[Polling] Starting metrics polling for test:", currentTestId);
+
+  if (metricsInterval) {
+    clearInterval(metricsInterval);
+  }
+
+  const lastUpdatedEl = document.getElementById("lastUpdated");
+  if (lastUpdatedEl) {
+    lastUpdatedEl.style.display = "block";
+  }
+
+  metricsInterval = setInterval(async () => {
+    if (!currentTestId) {
+      console.warn("[Polling] No current test ID, stopping polling");
+      return;
+    }
+
+    try {
+      console.log("[Polling] Fetching metrics for:", currentTestId);
+      const response = await fetch(`/api/metrics/${currentTestId}`);
+
+      if (!response.ok) {
+        console.error(
+          "[Polling] Failed to fetch metrics:",
+          response.status,
+          response.statusText,
+        );
+        stopMetricsPolling();
+        return;
+      }
+
+      const metrics = await response.json();
+      console.log("[Polling] Received metrics:", {
+        total_requests: metrics.total_requests,
+        rps: metrics.rps,
+        is_running: metrics.is_running,
+      });
+
+      updateMetrics(metrics);
+
+      if (!metrics.is_running) {
+        console.log("[Polling] Test completed, stopping polling");
+        stopMetricsPolling();
+        stopTimeSeriesPolling();
+
+        if (metrics.stopped_by_circuit) {
+          console.log("[Polling] Test stopped by circuit breaker");
+          const circuitBreakerBanner = document.getElementById(
+            "circuitBreakerBanner",
+          );
+          if (circuitBreakerBanner) {
+            circuitBreakerBanner.style.display = "flex";
+          }
+        }
+
+        if (lastUpdatedEl) {
+          lastUpdatedEl.style.display = "none";
+        }
+
+        if (domCache.ctaSection) domCache.ctaSection.style.display = "block";
+        if (domCache.metricsSection)
+          domCache.metricsSection.style.display = "none";
+
+        if (domCache.historySection) {
+          domCache.historySection.style.display = isOnTestPage()
+            ? "none"
+            : "block";
+        }
+
+        currentTestId = null;
+        testStartTime = null;
+        testDurationSeconds = null;
+        testUsers = null;
+        removeTestUUIDFromURL();
+        saveTestUUIDToStorage(null);
+        loadHistory();
+      }
+    } catch (error) {
+      console.error("[Polling] Error fetching metrics:", error);
+    }
+  }, 1000);
+}
+
+function startTimeSeriesPolling() {
+  console.log(
+    "[Polling] Starting time series polling for test:",
+    currentTestId,
+  );
+
+  if (timeSeriesInterval) {
+    clearInterval(timeSeriesInterval);
+  }
+
+  timeSeriesInterval = setInterval(async () => {
+    if (!currentTestId) return;
+
+    try {
+      const response = await fetch(`/api/timeseries/${currentTestId}`);
+      if (!response.ok) {
+        console.error(
+          "[Polling] Failed to fetch time series:",
+          response.status,
+        );
+        return;
+      }
+
+      const timeSeries = await response.json();
+      console.log(
+        "[Polling] Received time series data points:",
+        timeSeries.length,
+      );
+      updateCharts(timeSeries);
+    } catch (error) {
+      console.error("[Polling] Error fetching time series:", error);
+    }
+  }, 2000);
+}
+
+function stopTimeSeriesPolling() {
+  if (timeSeriesInterval) {
+    clearInterval(timeSeriesInterval);
+    timeSeriesInterval = null;
+  }
+}
+
+function stopMetricsPolling() {
+  if (metricsInterval) {
+    clearInterval(metricsInterval);
+    metricsInterval = null;
+  }
+}
+
+async function loadHistory() {
+  try {
+    const response = await fetch("/api/history");
+    if (!response.ok) {
+      throw new Error("Failed to load history");
+    }
+
+    const history = await response.json();
+    displayHistory(history);
+  } catch (error) {
+    console.error("Error loading history:", error);
+    if (domCache.historySection) {
+      domCache.historySection.style.display = "none";
+    }
+    if (!currentTestId && domCache.ctaSection) {
+      domCache.ctaSection.style.display = "block";
+    }
+  }
+}
+
+function displayHistory(history) {
+  if (!domCache.historySection || !domCache.historyList) {
+    console.warn("[History] DOM cache not initialized; skipping render");
+    return;
+  }
+
+  if (history.length === 0) {
+    domCache.historySection.style.display = "none";
+    if (!currentTestId && domCache.ctaSection) {
+      domCache.ctaSection.style.display = "block";
+    }
+    return;
+  }
+
+  if (!currentTestId && domCache.ctaSection) {
+    domCache.ctaSection.style.display = "block";
+  }
+
+  domCache.historySection.style.display = isOnTestPage() ? "none" : "block";
+
+  const fragment = document.createDocumentFragment();
+  const tempDiv = document.createElement("div");
+
+  const htmlParts = new Array(history.length);
+  for (let i = 0; i < history.length; i++) {
+    const test = history[i];
+    const successRate =
+      test.total_requests > 0
+        ? ((test.success_count / test.total_requests) * 100).toFixed(1)
+        : 0;
+
+    htmlParts[i] = `
+        <div class="history-item" data-test-id="${test.id}" data-test-uuid="${test.uuid}">
+            <div class="history-item-header">
+                <div class="history-item-url">${escapeHtml(maskUrl(test.host))}</div>
+                <div class="history-item-meta">
+                    <span class="status-badge status-${test.status}">${test.status}</span>
+                    <span class="history-item-time">${formatDate(test.started_at)}</span>
+                </div>
+            </div>
+            <div class="history-item-summary">
+                <p class="summary-text">${escapeHtml(generateTestSummary(test))}</p>
+                <span class="expand-indicator">▼ Click to view details</span>
+            </div>
+            <div class="history-item-details" id="details-${test.id}" style="display: none;">
+                <div class="history-item-metrics">
+                    <div class="history-metric">
+                        <span class="history-metric-label">Users</span>
+                        <span class="history-metric-value">${test.total_users}</span>
+                    </div>
+                    <div class="history-metric">
+                        <span class="history-metric-label">Requests</span>
+                        <span class="history-metric-value">${test.total_requests.toLocaleString()}</span>
+                    </div>
+                    <div class="history-metric">
+                        <span class="history-metric-label">Success</span>
+                        <span class="history-metric-value">${successRate}%</span>
+                    </div>
+                    <div class="history-metric">
+                        <span class="history-metric-label">RPS</span>
+                        <span class="history-metric-value">${test.rps.toFixed(2)}</span>
+                    </div>
+                    <div class="history-metric">
+                        <span class="history-metric-label">Latency</span>
+                        <span class="history-metric-value">${test.avg_latency.toFixed(2)}ms</span>
+                    </div>
+                    <div class="history-metric">
+                        <span class="history-metric-label">Duration</span>
+                        <span class="history-metric-value">${test.duration}s</span>
+                    </div>
+                </div>
+                <div class="history-item-actions">
+                    <button class="btn btn-secondary btn-sm" data-action="advanced" data-test-id="${test.id}" data-test-uuid="${test.uuid}">
+                        Advanced View
+                    </button>
+                    <button class="btn btn-secondary btn-sm" data-action="download" data-test-id="${test.id}" data-test-uuid="${test.uuid}">
+                        Download Report
+                    </button>
+                </div>
+                <div id="advanced-view-${test.id}" class="history-advanced-view" style="display: none;">
+                    <div class="loading-state">Loading advanced metrics...</div>
+                </div>
+            </div>
+        </div>
+    `;
+  }
+
+  tempDiv.innerHTML = htmlParts.join("");
+  while (tempDiv.firstChild) {
+    fragment.appendChild(tempDiv.firstChild);
+  }
+
+  domCache.historyList.innerHTML = "";
+  domCache.historyList.appendChild(fragment);
+}
+
+function toggleHistoryDetails(testId) {
+  const detailsDiv = document.getElementById(`details-${testId}`);
+  const historyItem = document.querySelector(
+    `[data-test-id="${testId}"].history-item`,
+  );
+  if (!detailsDiv || !historyItem) {
+    return;
+  }
+  const expandIndicator = historyItem.querySelector(".expand-indicator");
+
+  if (collapsedHistoryItems.has(testId)) {
+    detailsDiv.style.display = "block";
+    collapsedHistoryItems.delete(testId);
+    if (expandIndicator) {
+      expandIndicator.textContent = "▲ Click to hide details";
+    }
+    historyItem.classList.add("expanded");
+  } else {
+    detailsDiv.style.display = "none";
+    collapsedHistoryItems.add(testId);
+    if (expandIndicator) {
+      expandIndicator.textContent = "▼ Click to view details";
+    }
+    historyItem.classList.remove("expanded");
+  }
+}
+
+async function toggleAdvancedView(testId, testUUID) {
+  const advancedView = document.getElementById(`advanced-view-${testId}`);
+  const button = document.querySelector(
+    `[data-action="advanced"][data-test-id="${testId}"]`,
+  );
+
+  if (!advancedView) {
+    return;
+  }
+
+  if (expandedHistoryItems.has(testId)) {
+    advancedView.style.display = "none";
+    expandedHistoryItems.delete(testId);
+    if (button) button.textContent = "Advanced View";
+  } else {
+    advancedView.style.display = "block";
+    expandedHistoryItems.add(testId);
+    if (button) button.textContent = "Hide Advanced";
+
+    if (!advancedView.dataset.loaded) {
+      await loadAdvancedMetrics(testId, testUUID);
+    }
+  }
+}
+
+async function loadAdvancedMetrics(testId, testUUID) {
+  const advancedView = document.getElementById(`advanced-view-${testId}`);
+
+  if (!advancedView) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/historical-metrics/${testUUID}`);
+    if (!response.ok) {
+      throw new Error("Failed to load advanced metrics");
+    }
+
+    const data = await response.json();
+
+    advancedView.innerHTML = `
+            <div class="advanced-metrics-grid">
+                <div class="history-metric">
+                    <span class="history-metric-label">P50 Latency</span>
+                    <span class="history-metric-value">${data.p50_latency.toFixed(2)}ms</span>
+                </div>
+                <div class="history-metric">
+                    <span class="history-metric-label">P95 Latency</span>
+                    <span class="history-metric-value">${data.p95_latency.toFixed(2)}ms</span>
+                </div>
+                <div class="history-metric">
+                    <span class="history-metric-label">P99 Latency</span>
+                    <span class="history-metric-value">${data.p99_latency.toFixed(2)}ms</span>
+                </div>
+                <div class="history-metric">
+                    <span class="history-metric-label">Error Rate</span>
+                    <span class="history-metric-value">${data.error_rate.toFixed(2)}%</span>
+                </div>
+            </div>
+            <div class="history-charts">
+                <div class="history-chart-card">
+                    <div class="chart-header">Throughput Over Time</div>
+                    <div class="chart-container">
+                        <canvas id="history-throughput-${testId}"></canvas>
+                    </div>
+                </div>
+                <div class="history-chart-card">
+                    <div class="chart-header">Response Time Over Time</div>
+                    <div class="chart-container">
+                        <canvas id="history-latency-${testId}"></canvas>
+                    </div>
+                </div>
+                <div class="history-chart-card">
+                    <div class="chart-header">Success Rate Over Time</div>
+                    <div class="chart-container">
+                        <canvas id="history-success-${testId}"></canvas>
+                    </div>
+                </div>
+            </div>
+        `;
+
+    advancedView.dataset.loaded = "true";
+
+    renderHistoryCharts(testId, data.time_series);
+  } catch (error) {
+    console.error("Error loading advanced metrics:", error);
+    advancedView.innerHTML =
+      '<div class="empty-state">Failed to load advanced metrics</div>';
+  }
+}
+
+function renderHistoryCharts(testId, timeSeries) {
+  if (!timeSeries || timeSeries.length === 0) {
+    return;
+  }
+
+  const labels = timeSeries.map((_, i) => `${i}s`);
+  const rpsData = timeSeries.map((point) => point.rps || 0);
+  const latencyData = timeSeries.map((point) => point.avg_latency || 0);
+  const successRateData = timeSeries.map((point) => point.success_rate || 0);
+
+  const throughputCtx = document.getElementById(`history-throughput-${testId}`);
+  if (throughputCtx) {
+    new Chart(throughputCtx, {
+      type: "line",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: "Throughput",
+            data: rpsData,
+            borderColor: "#3b82f6",
+            backgroundColor: "rgba(59, 130, 246, 0.1)",
+            tension: 0.4,
+            fill: true,
+            borderWidth: 2.5,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            pointHoverBackgroundColor: "#3b82f6",
+            pointHoverBorderColor: "#fff",
+            pointHoverBorderWidth: 2,
+          },
+        ],
+      },
+      options: getChartOptions("Requests per Second", "req/s"),
+    });
+  }
+
+  const latencyCtx = document.getElementById(`history-latency-${testId}`);
+  if (latencyCtx) {
+    new Chart(latencyCtx, {
+      type: "line",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: "Response Time",
+            data: latencyData,
+            borderColor: "#10b981",
+            backgroundColor: "rgba(16, 185, 129, 0.1)",
+            tension: 0.4,
+            fill: true,
+            borderWidth: 2.5,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            pointHoverBackgroundColor: "#10b981",
+            pointHoverBorderColor: "#fff",
+            pointHoverBorderWidth: 2,
+          },
+        ],
+      },
+      options: getChartOptions("Average Latency", "ms"),
+    });
+  }
+
+  const successCtx = document.getElementById(`history-success-${testId}`);
+  if (successCtx) {
+    new Chart(successCtx, {
+      type: "line",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: "Success Rate",
+            data: successRateData,
+            borderColor: "#f59e0b",
+            backgroundColor: "rgba(245, 158, 11, 0.1)",
+            tension: 0.4,
+            fill: true,
+            borderWidth: 2.5,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            pointHoverBackgroundColor: "#f59e0b",
+            pointHoverBorderColor: "#fff",
+            pointHoverBorderWidth: 2,
+          },
+        ],
+      },
+      options: getChartOptions("Success Rate", "%", 100),
+    });
+  }
+}
+
+async function downloadReport(testId, testUUID) {
+  try {
+    const response = await fetch(`/api/report/${testUUID}`);
+    if (!response.ok) {
+      throw new Error("Failed to generate PDF");
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `loadtest_report_${testId}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  } catch (error) {
+    alert("Error downloading PDF: " + error.message);
+  }
+}
+
+function formatDate(dateString) {
+  const date = new Date(dateString);
+  return date.toLocaleString();
+}
+
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
+}
+
 // URL masking configuration
 const URL_MASK_LEVEL = {
   FULL: "full", // Show everything (no masking)
@@ -396,6 +1115,7 @@ function openTestModal() {
 function closeTestModal() {
   document.getElementById("testModal").style.display = "none";
   document.body.style.overflow = "";
+  collapseAdvancedOptions();
 }
 
 // Reset form
@@ -415,6 +1135,7 @@ function resetForm() {
   document.getElementById("enableHeaders").checked = false;
   document.getElementById("customHeaders").value = "";
   document.getElementById("headersConfig").style.display = "none";
+  collapseAdvancedOptions();
 }
 
 // Show/hide auth config based on checkbox
@@ -461,6 +1182,7 @@ function toggleBodyField() {
 function toggleAdvancedOptions() {
   const advancedOptions = document.getElementById("advancedOptions");
   const chevron = document.getElementById("advancedChevron");
+  const toggleButton = document.getElementById("advancedToggle");
 
   console.log("[toggleAdvancedOptions] Toggling advanced options");
 
@@ -470,18 +1192,42 @@ function toggleAdvancedOptions() {
     advancedOptions.style.maxHeight = advancedOptions.scrollHeight + "px";
     advancedOptions.style.opacity = "1";
     chevron.style.transform = "rotate(90deg)";
+    if (toggleButton) {
+      toggleButton.setAttribute("aria-expanded", "true");
+    }
     console.log("[toggleAdvancedOptions] Advanced options shown");
   } else {
     // Hide advanced options
     advancedOptions.style.maxHeight = "0";
     advancedOptions.style.opacity = "0";
     chevron.style.transform = "rotate(0deg)";
+    if (toggleButton) {
+      toggleButton.setAttribute("aria-expanded", "false");
+    }
 
     // Add hidden class after animation completes
     setTimeout(() => {
       advancedOptions.classList.add("hidden");
     }, 300);
     console.log("[toggleAdvancedOptions] Advanced options hidden");
+  }
+}
+
+function collapseAdvancedOptions() {
+  const advancedOptions = document.getElementById("advancedOptions");
+  const chevron = document.getElementById("advancedChevron");
+  const toggleButton = document.getElementById("advancedToggle");
+
+  if (!advancedOptions || !chevron) {
+    return;
+  }
+
+  advancedOptions.style.maxHeight = "0";
+  advancedOptions.style.opacity = "0";
+  advancedOptions.classList.add("hidden");
+  chevron.style.transform = "rotate(0deg)";
+  if (toggleButton) {
+    toggleButton.setAttribute("aria-expanded", "false");
   }
 }
 
@@ -774,1073 +1520,6 @@ function initializeCharts() {
   }
 }
 
-// Event listeners
-document
-  .getElementById("openTestModalBtn")
-  .addEventListener("click", openTestModal);
-document
-  .getElementById("closeModalBtn")
-  .addEventListener("click", closeTestModal);
-document.getElementById("resetFormBtn").addEventListener("click", resetForm);
-document
-  .getElementById("advancedMetricsToggle")
-  .addEventListener("click", toggleAdvancedMetrics);
-document
-  .getElementById("enableAuth")
-  .addEventListener("change", toggleAuthConfig);
-document.getElementById("authType").addEventListener("change", (e) => {
-  showAuthTypeConfig(e.target.value);
-});
-document
-  .getElementById("enableHeaders")
-  .addEventListener("change", toggleHeadersConfig);
-document.getElementById("method").addEventListener("change", toggleBodyField);
-
-// Close modal on overlay click
-document.getElementById("testModal").addEventListener("click", (e) => {
-  if (e.target.id === "testModal") {
-    closeTestModal();
-  }
-});
-
-// Close modal on Escape key
-document.addEventListener("keydown", (e) => {
-  if (
-    e.key === "Escape" &&
-    document.getElementById("testModal").style.display === "flex"
-  ) {
-    closeTestModal();
-  }
-});
-
-document.getElementById("testForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
-
-  let host = document.getElementById("host").value.trim();
-  if (!host) {
-    alert("Please enter a target host");
-    return;
-  }
-
-  // Normalize URL to use https by default
-  host = normalizeUrl(host);
-
-  const users = parseInt(document.getElementById("users").value);
-  const rampUp = parseInt(document.getElementById("rampUp").value);
-  const duration = parseInt(document.getElementById("duration").value);
-
-  // Client-side validation
-  if (users < 1 || users > 1000) {
-    alert("Users must be between 1 and 1000");
-    return;
-  }
-
-  if (rampUp < 0 || rampUp > 300) {
-    alert("Ramp-up time must be between 0 and 300 seconds");
-    return;
-  }
-
-  if (duration < 1 || duration > 300) {
-    alert("Duration must be between 1 and 300 seconds (5 minutes)");
-    return;
-  }
-
-  if (rampUp > duration) {
-    alert("Ramp-up time cannot exceed test duration");
-    return;
-  }
-
-  // Get auth config
-  const auth = getAuthConfig();
-
-  // Get HTTP method
-  const method = document.getElementById("method").value || "GET";
-
-  // Get request body
-  const bodyField = document.getElementById("body").value.trim();
-  let requestBodyPayload = null;
-  if (
-    bodyField &&
-    (method === "POST" || method === "PUT" || method === "PATCH")
-  ) {
-    // Validate JSON if provided
-    try {
-      JSON.parse(bodyField);
-      requestBodyPayload = bodyField;
-    } catch (e) {
-      alert("Invalid JSON in request body: " + e.message);
-      return;
-    }
-  }
-
-  // Get custom headers
-  const enableHeaders = document.getElementById("enableHeaders").checked;
-  let customHeaders = null;
-  if (enableHeaders) {
-    const headersField = document.getElementById("customHeaders").value.trim();
-    if (headersField) {
-      try {
-        customHeaders = JSON.parse(headersField);
-        if (typeof customHeaders !== "object" || Array.isArray(customHeaders)) {
-          alert("Headers must be a JSON object");
-          return;
-        }
-      } catch (e) {
-        alert("Invalid JSON in custom headers: " + e.message);
-        return;
-      }
-    }
-  }
-
-  // Get optional performance and circuit breaker settings
-  const maxConcurrentRequests =
-    parseInt(document.getElementById("maxConcurrentRequests").value) || 10;
-  const errorThreshold =
-    parseInt(document.getElementById("errorThreshold").value) || 0;
-
-  const requestBody = { host, users, ramp_up_sec: rampUp, duration };
-  if (auth) {
-    requestBody.auth = auth;
-  }
-  if (method && method !== "GET") {
-    requestBody.method = method;
-  }
-  if (requestBodyPayload) {
-    requestBody.body = requestBodyPayload;
-  }
-  if (customHeaders) {
-    requestBody.headers = customHeaders;
-  }
-  if (maxConcurrentRequests > 0 && maxConcurrentRequests !== 10) {
-    requestBody.max_concurrent_requests = maxConcurrentRequests;
-  }
-  if (errorThreshold > 0) {
-    requestBody.error_threshold = errorThreshold;
-  }
-
-  try {
-    const response = await fetch("/api/start", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      alert("Failed to start test: " + errorText);
-      return;
-    }
-
-    const data = await response.json();
-    currentTestId = data.test_uuid; // Use UUID instead of numeric ID
-
-    // Save test UUID to URL and localStorage
-    setTestUUIDInURL(currentTestId);
-    saveTestUUIDToStorage(currentTestId);
-
-    // Store test configuration
-    testStartTime = Date.now();
-    testDurationSeconds = duration;
-    testUsers = users;
-
-    // Store host for display
-    document.getElementById("currentHostUrl").textContent = maskUrl(host);
-
-    // Update overview fields using cache
-    domCache.virtualUsers.textContent = users;
-    domCache.testDuration.textContent = duration + "s";
-    domCache.elapsedTime.textContent = "0s";
-    domCache.remainingTime.textContent = duration + "s";
-    domCache.progressPercentage.textContent = "0%";
-    domCache.progressBarFill.style.width = "0%";
-
-    closeTestModal();
-    domCache.ctaSection.style.display = "none";
-    domCache.metricsSection.style.display = "block";
-    domCache.historySection.style.display = "none"; // Always hide history on test page
-
-    // Reset charts
-    resetCharts();
-    startMetricsPolling();
-    startTimeSeriesPolling();
-  } catch (error) {
-    alert("Error starting test: " + error.message);
-  }
-});
-
-function resetCharts() {
-  if (throughputChart) {
-    throughputChart.data.labels = [];
-    throughputChart.data.datasets[0].data = [];
-    throughputChart.update();
-  }
-  if (latencyChart) {
-    latencyChart.data.labels = [];
-    latencyChart.data.datasets[0].data = [];
-    latencyChart.update();
-  }
-  if (successRateChart) {
-    successRateChart.data.labels = [];
-    successRateChart.data.datasets[0].data = [];
-    successRateChart.update();
-  }
-}
-
-function startMetricsPolling() {
-  console.log("[Polling] Starting metrics polling for test:", currentTestId);
-
-  if (metricsInterval) {
-    clearInterval(metricsInterval);
-  }
-
-  // Show last updated indicator
-  const lastUpdatedEl = document.getElementById("lastUpdated");
-  if (lastUpdatedEl) {
-    lastUpdatedEl.style.display = "block";
-  }
-
-  metricsInterval = setInterval(async () => {
-    if (!currentTestId) {
-      console.warn("[Polling] No current test ID, stopping polling");
-      return;
-    }
-
-    try {
-      console.log("[Polling] Fetching metrics for:", currentTestId);
-      const response = await fetch(`/api/metrics/${currentTestId}`);
-
-      if (!response.ok) {
-        console.error(
-          "[Polling] Failed to fetch metrics:",
-          response.status,
-          response.statusText,
-        );
-        stopMetricsPolling();
-        return;
-      }
-
-      const metrics = await response.json();
-      console.log("[Polling] Received metrics:", {
-        total_requests: metrics.total_requests,
-        rps: metrics.rps,
-        is_running: metrics.is_running,
-      });
-
-      updateMetrics(metrics);
-
-      if (!metrics.is_running) {
-        console.log("[Polling] Test completed, stopping polling");
-        stopMetricsPolling();
-        stopTimeSeriesPolling();
-
-        // Check if test was stopped by circuit breaker
-        if (metrics.stopped_by_circuit) {
-          console.log("[Polling] Test stopped by circuit breaker");
-          const circuitBreakerBanner = document.getElementById(
-            "circuitBreakerBanner",
-          );
-          if (circuitBreakerBanner) {
-            circuitBreakerBanner.style.display = "flex";
-          }
-        }
-
-        // Hide last updated indicator
-        const lastUpdatedEl = document.getElementById("lastUpdated");
-        if (lastUpdatedEl) {
-          lastUpdatedEl.style.display = "none";
-        }
-
-        if (domCache.ctaSection) domCache.ctaSection.style.display = "block";
-        if (domCache.metricsSection)
-          domCache.metricsSection.style.display = "none";
-
-        // Only show history if not on a test-specific page
-        if (domCache.historySection) {
-          domCache.historySection.style.display = isOnTestPage()
-            ? "none"
-            : "block";
-        }
-
-        currentTestId = null;
-        testStartTime = null;
-        testDurationSeconds = null;
-        testUsers = null;
-        // Clean up URL and storage when test completes
-        removeTestUUIDFromURL();
-        saveTestUUIDToStorage(null);
-        loadHistory();
-      }
-    } catch (error) {
-      console.error("[Polling] Error fetching metrics:", error);
-    }
-  }, 1000);
-}
-
-function startTimeSeriesPolling() {
-  console.log(
-    "[Polling] Starting time series polling for test:",
-    currentTestId,
-  );
-
-  if (timeSeriesInterval) {
-    clearInterval(timeSeriesInterval);
-  }
-
-  timeSeriesInterval = setInterval(async () => {
-    if (!currentTestId) return;
-
-    try {
-      const response = await fetch(`/api/timeseries/${currentTestId}`);
-      if (!response.ok) {
-        console.error(
-          "[Polling] Failed to fetch time series:",
-          response.status,
-        );
-        return;
-      }
-
-      const timeSeries = await response.json();
-      console.log(
-        "[Polling] Received time series data points:",
-        timeSeries.length,
-      );
-      updateCharts(timeSeries);
-    } catch (error) {
-      console.error("[Polling] Error fetching time series:", error);
-    }
-  }, 2000);
-}
-
-function stopTimeSeriesPolling() {
-  if (timeSeriesInterval) {
-    clearInterval(timeSeriesInterval);
-    timeSeriesInterval = null;
-  }
-}
-
-function stopMetricsPolling() {
-  if (metricsInterval) {
-    clearInterval(metricsInterval);
-    metricsInterval = null;
-  }
-}
-
-// Throttled update for better performance
-const updateMetricsThrottled = throttle(function (metrics) {
-  if (!metrics) {
-    console.error("[Metrics] No metrics data received");
-    return;
-  }
-
-  console.log("[Metrics] Updating with data:", {
-    total_requests: metrics.total_requests,
-    rps: metrics.rps,
-    is_running: metrics.is_running,
-  });
-
-  // Update last updated timestamp
-  const lastUpdatedEl = document.getElementById("lastUpdated");
-  const lastUpdatedTimeEl = document.getElementById("lastUpdatedTime");
-  if (lastUpdatedEl && lastUpdatedTimeEl) {
-    lastUpdatedEl.style.display = "block";
-    const now = new Date();
-    lastUpdatedTimeEl.textContent = now.toLocaleTimeString();
-  }
-
-  // Update live overview (elapsed time, remaining time, progress)
-  if (testStartTime && testDurationSeconds) {
-    const elapsedSeconds = Math.floor((Date.now() - testStartTime) / 1000);
-    const remainingSeconds = Math.max(0, testDurationSeconds - elapsedSeconds);
-    const progressPercent = Math.min(
-      100,
-      (elapsedSeconds / testDurationSeconds) * 100,
-    );
-
-    if (domCache.elapsedTime) {
-      domCache.elapsedTime.textContent = formatTime(elapsedSeconds);
-    }
-    if (domCache.remainingTime) {
-      domCache.remainingTime.textContent = formatTime(remainingSeconds);
-    }
-    if (domCache.progressPercentage) {
-      domCache.progressPercentage.textContent =
-        progressPercent.toFixed(1) + "%";
-    }
-    if (domCache.progressBarFill) {
-      domCache.progressBarFill.style.width = progressPercent + "%";
-    }
-  }
-
-  // Batch DOM updates
-  requestAnimationFrame(() => {
-    try {
-      // Basic metrics with null checks
-      if (domCache.totalRequests) {
-        domCache.totalRequests.textContent = (
-          metrics.total_requests || 0
-        ).toLocaleString();
-      }
-
-      const successRate =
-        metrics.total_requests > 0
-          ? ((metrics.success_count / metrics.total_requests) * 100).toFixed(1)
-          : 0;
-      if (domCache.successRate) {
-        domCache.successRate.textContent = successRate + "%";
-      }
-
-      if (domCache.rps) {
-        domCache.rps.textContent =
-          (metrics.rps || 0).toLocaleString("en-US", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          }) + " req/s";
-      }
-      if (domCache.avgLatency) {
-        domCache.avgLatency.textContent =
-          (metrics.avg_latency || 0).toLocaleString("en-US", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          }) + " ms";
-      }
-      if (domCache.minLatency) {
-        domCache.minLatency.textContent =
-          (metrics.min_latency || 0).toLocaleString("en-US", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          }) + " ms";
-      }
-      if (domCache.maxLatency) {
-        domCache.maxLatency.textContent =
-          (metrics.max_latency || 0).toLocaleString("en-US", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          }) + " ms";
-      }
-
-      // Advanced metrics
-      if (domCache.p50Latency) {
-        domCache.p50Latency.textContent =
-          (metrics.p50_latency || 0).toLocaleString("en-US", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          }) + " ms";
-      }
-      if (domCache.p95Latency) {
-        domCache.p95Latency.textContent =
-          (metrics.p95_latency || 0).toLocaleString("en-US", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          }) + " ms";
-      }
-      if (domCache.p99Latency) {
-        domCache.p99Latency.textContent =
-          (metrics.p99_latency || 0).toLocaleString("en-US", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          }) + " ms";
-      }
-      if (domCache.errorRate) {
-        domCache.errorRate.textContent =
-          (metrics.error_rate || 0).toLocaleString("en-US", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          }) + "%";
-      }
-      if (domCache.totalErrors) {
-        domCache.totalErrors.textContent = (
-          metrics.error_count || 0
-        ).toLocaleString();
-      }
-      if (domCache.avgRPS) {
-        domCache.avgRPS.textContent =
-          (metrics.avg_rps || 0).toLocaleString("en-US", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          }) + " req/s";
-      }
-
-      console.log("[Metrics] ✅ DOM updated successfully");
-    } catch (error) {
-      console.error("[Metrics] Error updating DOM:", error);
-    }
-  });
-}, 100); // Throttle to max 10 updates per second
-
-function updateMetrics(metrics) {
-  updateMetricsThrottled(metrics);
-}
-
-function formatTime(seconds) {
-  if (seconds < 60) {
-    return seconds + "s";
-  }
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  return minutes + "m " + remainingSeconds + "s";
-}
-
-// Throttled chart updates
-const updateChartsThrottled = throttle(function (timeSeries) {
-  if (!timeSeries || timeSeries.length === 0) {
-    console.log("[Charts] No time series data to display");
-    return;
-  }
-
-  console.log("[Charts] Updating with", timeSeries.length, "data points");
-
-  const recentData = timeSeries.slice(-60);
-
-  // Pre-allocate arrays for better performance
-  const dataLength = recentData.length;
-  const labels = new Array(dataLength);
-  const rpsData = new Array(dataLength);
-  const latencyData = new Array(dataLength);
-  const successRateData = new Array(dataLength);
-
-  // Single loop instead of multiple map calls
-  for (let i = 0; i < dataLength; i++) {
-    const point = recentData[i];
-    labels[i] = new Date(point.timestamp).toLocaleTimeString();
-    rpsData[i] = point.rps;
-    latencyData[i] = point.avg_latency;
-    successRateData[i] = point.success_rate;
-  }
-
-  // Batch chart updates
-  requestAnimationFrame(() => {
-    try {
-      if (throughputChart) {
-        throughputChart.data.labels = labels;
-        throughputChart.data.datasets[0].data = rpsData;
-        throughputChart.update("none");
-      } else {
-        console.warn("[Charts] Throughput chart not initialized");
-      }
-
-      if (latencyChart) {
-        latencyChart.data.labels = labels;
-        latencyChart.data.datasets[0].data = latencyData;
-        latencyChart.update("none");
-      } else {
-        console.warn("[Charts] Latency chart not initialized");
-      }
-
-      if (successRateChart) {
-        successRateChart.data.labels = labels;
-        successRateChart.data.datasets[0].data = successRateData;
-        successRateChart.update("none");
-      } else {
-        console.warn("[Charts] Success rate chart not initialized");
-      }
-
-      console.log("[Charts] ✅ Charts updated successfully");
-    } catch (error) {
-      console.error("[Charts] Error updating charts:", error);
-    }
-  });
-}, 500); // Throttle to max 2 updates per second
-
-function updateCharts(timeSeries) {
-  updateChartsThrottled(timeSeries);
-}
-
-async function loadHistory() {
-  try {
-    const response = await fetch("/api/history");
-    if (!response.ok) {
-      throw new Error("Failed to load history");
-    }
-
-    const history = await response.json();
-    displayHistory(history);
-  } catch (error) {
-    console.error("Error loading history:", error);
-    // Hide history section on error
-    domCache.historySection.style.display = "none";
-    // Show CTA if no test is running
-    if (!currentTestId) {
-      domCache.ctaSection.style.display = "block";
-    }
-  }
-}
-
-function displayHistory(history) {
-  if (history.length === 0) {
-    // Hide history section completely when there are no tests at all
-    domCache.historySection.style.display = "none";
-    if (!currentTestId) {
-      domCache.ctaSection.style.display = "block";
-    }
-    return;
-  }
-
-  // Show CTA if there's 1 or more history items and no test is running
-  if (!currentTestId) {
-    domCache.ctaSection.style.display = "block";
-    // Only show history if not on a test-specific page
-    domCache.historySection.style.display = isOnTestPage() ? "none" : "block";
-  }
-
-  // Use DocumentFragment for better performance
-  const fragment = document.createDocumentFragment();
-  const tempDiv = document.createElement("div");
-
-  // Build HTML in single pass
-  const htmlParts = new Array(history.length);
-  for (let i = 0; i < history.length; i++) {
-    const test = history[i];
-    const successRate =
-      test.total_requests > 0
-        ? ((test.success_count / test.total_requests) * 100).toFixed(1)
-        : 0;
-
-    htmlParts[i] = `
-        <div class="history-item" data-test-id="${test.id}" data-test-uuid="${test.uuid}">
-            <div class="history-item-header">
-                <div class="history-item-url">${escapeHtml(maskUrl(test.host))}</div>
-                <div class="history-item-meta">
-                    <span class="status-badge status-${test.status}">${test.status}</span>
-                    <span class="history-item-time">${formatDate(test.started_at)}</span>
-                </div>
-            </div>
-            <div class="history-item-summary">
-                <p class="summary-text">${escapeHtml(generateTestSummary(test))}</p>
-                <span class="expand-indicator">▼ Click to view details</span>
-            </div>
-            <div class="history-item-details" id="details-${test.id}" style="display: none;">
-                <div class="history-item-metrics">
-                    <div class="history-metric">
-                        <span class="history-metric-label">Users</span>
-                        <span class="history-metric-value">${test.total_users}</span>
-                    </div>
-                    <div class="history-metric">
-                        <span class="history-metric-label">Requests</span>
-                        <span class="history-metric-value">${test.total_requests.toLocaleString()}</span>
-                    </div>
-                    <div class="history-metric">
-                        <span class="history-metric-label">Success</span>
-                        <span class="history-metric-value">${successRate}%</span>
-                    </div>
-                    <div class="history-metric">
-                        <span class="history-metric-label">RPS</span>
-                        <span class="history-metric-value">${test.rps.toFixed(2)}</span>
-                    </div>
-                    <div class="history-metric">
-                        <span class="history-metric-label">Latency</span>
-                        <span class="history-metric-value">${test.avg_latency.toFixed(2)}ms</span>
-                    </div>
-                    <div class="history-metric">
-                        <span class="history-metric-label">Duration</span>
-                        <span class="history-metric-value">${test.duration}s</span>
-                    </div>
-                </div>
-                <div class="history-item-actions">
-                    <button class="btn btn-secondary btn-sm" data-action="advanced" data-test-id="${test.id}" data-test-uuid="${test.uuid}">
-                        Advanced View
-                    </button>
-                    <button class="btn btn-secondary btn-sm" data-action="download" data-test-id="${test.id}" data-test-uuid="${test.uuid}">
-                        Download Report
-                    </button>
-                </div>
-                <div id="advanced-view-${test.id}" class="history-advanced-view" style="display: none;">
-                    <div class="loading-state">Loading advanced metrics...</div>
-                </div>
-            </div>
-        </div>
-    `;
-  }
-
-  tempDiv.innerHTML = htmlParts.join("");
-  while (tempDiv.firstChild) {
-    fragment.appendChild(tempDiv.firstChild);
-  }
-
-  // Single DOM update
-  domCache.historyList.innerHTML = "";
-  domCache.historyList.appendChild(fragment);
-}
-
-function toggleHistoryDetails(testId) {
-  const detailsDiv = document.getElementById(`details-${testId}`);
-  const historyItem = document.querySelector(
-    `[data-test-id="${testId}"].history-item`,
-  );
-  const expandIndicator = historyItem.querySelector(".expand-indicator");
-
-  if (collapsedHistoryItems.has(testId)) {
-    // Expand
-    detailsDiv.style.display = "block";
-    collapsedHistoryItems.delete(testId);
-    expandIndicator.textContent = "▲ Click to hide details";
-    historyItem.classList.add("expanded");
-  } else {
-    // Collapse
-    detailsDiv.style.display = "none";
-    collapsedHistoryItems.add(testId);
-    expandIndicator.textContent = "▼ Click to view details";
-    historyItem.classList.remove("expanded");
-  }
-}
-
-async function toggleAdvancedView(testId, testUUID) {
-  const advancedView = document.getElementById(`advanced-view-${testId}`);
-  const button = document.querySelector(
-    `[data-action="advanced"][data-test-id="${testId}"]`,
-  );
-
-  if (expandedHistoryItems.has(testId)) {
-    // Collapse
-    advancedView.style.display = "none";
-    expandedHistoryItems.delete(testId);
-    if (button) button.textContent = "Advanced View";
-  } else {
-    // Expand
-    advancedView.style.display = "block";
-    expandedHistoryItems.add(testId);
-    if (button) button.textContent = "Hide Advanced";
-
-    // Load advanced metrics if not already loaded
-    if (!advancedView.dataset.loaded) {
-      await loadAdvancedMetrics(testId, testUUID);
-    }
-  }
-}
-
-async function loadAdvancedMetrics(testId, testUUID) {
-  const advancedView = document.getElementById(`advanced-view-${testId}`);
-
-  try {
-    const response = await fetch(`/api/historical-metrics/${testUUID}`);
-    if (!response.ok) {
-      throw new Error("Failed to load advanced metrics");
-    }
-
-    const data = await response.json();
-
-    // Render advanced metrics
-    advancedView.innerHTML = `
-            <div class="advanced-metrics-grid">
-                <div class="history-metric">
-                    <span class="history-metric-label">P50 Latency</span>
-                    <span class="history-metric-value">${data.p50_latency.toFixed(2)}ms</span>
-                </div>
-                <div class="history-metric">
-                    <span class="history-metric-label">P95 Latency</span>
-                    <span class="history-metric-value">${data.p95_latency.toFixed(2)}ms</span>
-                </div>
-                <div class="history-metric">
-                    <span class="history-metric-label">P99 Latency</span>
-                    <span class="history-metric-value">${data.p99_latency.toFixed(2)}ms</span>
-                </div>
-                <div class="history-metric">
-                    <span class="history-metric-label">Error Rate</span>
-                    <span class="history-metric-value">${data.error_rate.toFixed(2)}%</span>
-                </div>
-            </div>
-            <div class="history-charts">
-                <div class="history-chart-card">
-                    <div class="chart-header">Throughput Over Time</div>
-                    <div class="chart-container">
-                        <canvas id="history-throughput-${testId}"></canvas>
-                    </div>
-                </div>
-                <div class="history-chart-card">
-                    <div class="chart-header">Response Time Over Time</div>
-                    <div class="chart-container">
-                        <canvas id="history-latency-${testId}"></canvas>
-                    </div>
-                </div>
-                <div class="history-chart-card">
-                    <div class="chart-header">Success Rate Over Time</div>
-                    <div class="chart-container">
-                        <canvas id="history-success-${testId}"></canvas>
-                    </div>
-                </div>
-            </div>
-        `;
-
-    advancedView.dataset.loaded = "true";
-
-    // Render charts
-    renderHistoryCharts(testId, data.time_series);
-  } catch (error) {
-    console.error("Error loading advanced metrics:", error);
-    advancedView.innerHTML =
-      '<div class="empty-state">Failed to load advanced metrics</div>';
-  }
-}
-
-function renderHistoryCharts(testId, timeSeries) {
-  if (!timeSeries || timeSeries.length === 0) {
-    return;
-  }
-
-  const labels = timeSeries.map((_, i) => `${i}s`);
-  const rpsData = timeSeries.map((point) => point.rps || 0);
-  const latencyData = timeSeries.map((point) => point.avg_latency || 0);
-  const successRateData = timeSeries.map((point) => point.success_rate || 0);
-
-  // Throughput chart
-  const throughputCtx = document.getElementById(`history-throughput-${testId}`);
-  if (throughputCtx) {
-    new Chart(throughputCtx, {
-      type: "line",
-      data: {
-        labels: labels,
-        datasets: [
-          {
-            label: "Throughput",
-            data: rpsData,
-            borderColor: "#3b82f6",
-            backgroundColor: "rgba(59, 130, 246, 0.1)",
-            tension: 0.4,
-            fill: true,
-            borderWidth: 2.5,
-            pointRadius: 0,
-            pointHoverRadius: 4,
-            pointHoverBackgroundColor: "#3b82f6",
-            pointHoverBorderColor: "#fff",
-            pointHoverBorderWidth: 2,
-          },
-        ],
-      },
-      options: getChartOptions("Requests per Second", "req/s"),
-    });
-  }
-
-  // Latency chart
-  const latencyCtx = document.getElementById(`history-latency-${testId}`);
-  if (latencyCtx) {
-    new Chart(latencyCtx, {
-      type: "line",
-      data: {
-        labels: labels,
-        datasets: [
-          {
-            label: "Response Time",
-            data: latencyData,
-            borderColor: "#10b981",
-            backgroundColor: "rgba(16, 185, 129, 0.1)",
-            tension: 0.4,
-            fill: true,
-            borderWidth: 2.5,
-            pointRadius: 0,
-            pointHoverRadius: 4,
-            pointHoverBackgroundColor: "#10b981",
-            pointHoverBorderColor: "#fff",
-            pointHoverBorderWidth: 2,
-          },
-        ],
-      },
-      options: getChartOptions("Average Latency", "ms"),
-    });
-  }
-
-  // Success rate chart
-  const successCtx = document.getElementById(`history-success-${testId}`);
-  if (successCtx) {
-    new Chart(successCtx, {
-      type: "line",
-      data: {
-        labels: labels,
-        datasets: [
-          {
-            label: "Success Rate",
-            data: successRateData,
-            borderColor: "#f59e0b",
-            backgroundColor: "rgba(245, 158, 11, 0.1)",
-            tension: 0.4,
-            fill: true,
-            borderWidth: 2.5,
-            pointRadius: 0,
-            pointHoverRadius: 4,
-            pointHoverBackgroundColor: "#f59e0b",
-            pointHoverBorderColor: "#fff",
-            pointHoverBorderWidth: 2,
-          },
-        ],
-      },
-      options: getChartOptions("Success Rate", "%", 100),
-    });
-  }
-}
-
-async function downloadReport(testId, testUUID) {
-  try {
-    const response = await fetch(`/api/report/${testUUID}`);
-    if (!response.ok) {
-      throw new Error("Failed to generate PDF");
-    }
-
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `loadtest_report_${testId}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
-  } catch (error) {
-    alert("Error downloading PDF: " + error.message);
-  }
-}
-
-function formatDate(dateString) {
-  const date = new Date(dateString);
-  return date.toLocaleString();
-}
-
-function escapeHtml(text) {
-  const div = document.createElement("div");
-  div.textContent = text;
-  return div.innerHTML;
-}
-
-// Theme toggle functionality
-function initTheme() {
-  const themeToggle = document.getElementById("themeToggle");
-  const themeIcon = document.getElementById("themeIcon");
-  const themeText = document.getElementById("themeText");
-  const html = document.documentElement;
-
-  // Check for saved theme preference or default to dark mode
-  const savedTheme = localStorage.getItem("theme") || "dark";
-  html.setAttribute("data-theme", savedTheme);
-  updateThemeIcon(savedTheme === "dark", themeIcon, themeText);
-
-  themeToggle.addEventListener("click", () => {
-    const currentTheme = html.getAttribute("data-theme");
-    const newTheme = currentTheme === "dark" ? "light" : "dark";
-    html.setAttribute("data-theme", newTheme);
-    localStorage.setItem("theme", newTheme);
-    updateThemeIcon(newTheme === "dark", themeIcon, themeText);
-  });
-}
-
-function updateThemeIcon(isDark, icon, text) {
-  if (isDark) {
-    icon.innerHTML =
-      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
-    text.textContent = "Light Mode";
-  } else {
-    icon.innerHTML =
-      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
-    text.textContent = "Dark Mode";
-  }
-}
-
-// Update chart colors based on theme
-function updateChartColors() {
-  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
-  const gridColor = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)";
-  const textColor = isDark ? "#94a3b8" : "#64748b";
-
-  if (throughputChart) {
-    throughputChart.options.scales.x.grid.color = gridColor;
-    throughputChart.options.scales.y.grid.color = gridColor;
-    throughputChart.options.scales.x.ticks.color = textColor;
-    throughputChart.options.scales.y.ticks.color = textColor;
-    throughputChart.update("none");
-  }
-
-  if (latencyChart) {
-    latencyChart.options.scales.x.grid.color = gridColor;
-    latencyChart.options.scales.y.grid.color = gridColor;
-    latencyChart.options.scales.x.ticks.color = textColor;
-    latencyChart.options.scales.y.ticks.color = textColor;
-    latencyChart.update("none");
-  }
-
-  if (successRateChart) {
-    successRateChart.options.scales.x.grid.color = gridColor;
-    successRateChart.options.scales.y.grid.color = gridColor;
-    successRateChart.options.scales.x.ticks.color = textColor;
-    successRateChart.options.scales.y.ticks.color = textColor;
-    successRateChart.update("none");
-  }
-}
-
-// Event delegation for history items
-function setupEventDelegation() {
-  domCache.historyList.addEventListener("click", (e) => {
-    const historyItem = e.target.closest(".history-item");
-    if (!historyItem) return;
-
-    const testId = parseInt(historyItem.dataset.testId);
-    const testUUID = historyItem.dataset.testUuid;
-
-    // Handle button clicks
-    if (e.target.tagName === "BUTTON") {
-      const action = e.target.dataset.action;
-      if (action === "advanced") {
-        toggleAdvancedView(testId, testUUID);
-      } else if (action === "download") {
-        downloadReport(testId, testUUID);
-      }
-      return;
-    }
-
-    // Handle item click (expand/collapse)
-    if (!e.target.closest(".history-item-actions")) {
-      toggleHistoryDetails(testId);
-    }
-  });
-}
-
-// Real-time input validation
-function setupInputValidation() {
-  const usersInput = document.getElementById("users");
-  const rampUpInput = document.getElementById("rampUp");
-  const durationInput = document.getElementById("duration");
-
-  function validateInput(input, min, max, fieldName) {
-    const value = parseInt(input.value);
-
-    if (isNaN(value) || value < min || value > max) {
-      input.setCustomValidity(`${fieldName} must be between ${min} and ${max}`);
-      input.style.borderColor = "#ef4444";
-    } else {
-      input.setCustomValidity("");
-      input.style.borderColor = "";
-    }
-  }
-
-  usersInput.addEventListener("input", () => {
-    validateInput(usersInput, 1, 1000, "Users");
-  });
-
-  rampUpInput.addEventListener("input", () => {
-    validateInput(rampUpInput, 0, 300, "Ramp-up time");
-
-    // Also check if ramp-up exceeds duration
-    const duration = parseInt(durationInput.value);
-    const rampUp = parseInt(rampUpInput.value);
-    if (!isNaN(duration) && !isNaN(rampUp) && rampUp > duration) {
-      rampUpInput.setCustomValidity("Ramp-up time cannot exceed test duration");
-      rampUpInput.style.borderColor = "#ef4444";
-    }
-  });
-
-  durationInput.addEventListener("input", () => {
-    validateInput(durationInput, 1, 300, "Duration");
-
-    // Re-validate ramp-up when duration changes
-    const duration = parseInt(durationInput.value);
-    const rampUp = parseInt(rampUpInput.value);
-    if (!isNaN(duration) && !isNaN(rampUp) && rampUp > duration) {
-      rampUpInput.setCustomValidity("Ramp-up time cannot exceed test duration");
-      rampUpInput.style.borderColor = "#ef4444";
-    } else {
-      rampUpInput.setCustomValidity("");
-      rampUpInput.style.borderColor = "";
-    }
-  });
-}
-
 // Initialize charts and load history on page load
 window.addEventListener("DOMContentLoaded", async () => {
   console.log("[Init] Page loaded, initializing...");
@@ -1872,6 +1551,355 @@ window.addEventListener("DOMContentLoaded", async () => {
       "max-height 0.3s ease-out, opacity 0.3s ease-out";
     advancedOptions.style.maxHeight = "0";
     advancedOptions.style.opacity = "0";
+  }
+
+  // Event listeners
+  document
+    .getElementById("openTestModalBtn")
+    .addEventListener("click", openTestModal);
+  document
+    .getElementById("closeModalBtn")
+    .addEventListener("click", closeTestModal);
+  document.getElementById("resetFormBtn").addEventListener("click", resetForm);
+  document
+    .getElementById("advancedMetricsToggle")
+    .addEventListener("click", toggleAdvancedMetrics);
+  document
+    .getElementById("enableAuth")
+    .addEventListener("change", toggleAuthConfig);
+  document.getElementById("authType").addEventListener("change", (e) => {
+    showAuthTypeConfig(e.target.value);
+  });
+  document
+    .getElementById("enableHeaders")
+    .addEventListener("change", toggleHeadersConfig);
+  document.getElementById("method").addEventListener("change", toggleBodyField);
+
+  // Close modal on overlay click
+  document.getElementById("testModal").addEventListener("click", (e) => {
+    if (e.target.id === "testModal") {
+      closeTestModal();
+    }
+  });
+
+  // Close modal on Escape key
+  document.addEventListener("keydown", (e) => {
+    if (
+      e.key === "Escape" &&
+      document.getElementById("testModal").style.display === "flex"
+    ) {
+      closeTestModal();
+    }
+  });
+
+  document.getElementById("testForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    let host = document.getElementById("host").value.trim();
+    if (!host) {
+      alert("Please enter a target host");
+      return;
+    }
+
+    // Normalize URL to use https by default
+    host = normalizeUrl(host);
+
+    const users = parseInt(document.getElementById("users").value);
+    const rampUp = parseInt(document.getElementById("rampUp").value);
+    const duration = parseInt(document.getElementById("duration").value);
+
+    // Client-side validation
+    if (users < 1 || users > 1000) {
+      alert("Users must be between 1 and 1000");
+      return;
+    }
+
+    if (rampUp < 0 || rampUp > 300) {
+      alert("Ramp-up time must be between 0 and 300 seconds");
+      return;
+    }
+
+    if (duration < 1 || duration > 300) {
+      alert("Duration must be between 1 and 300 seconds (5 minutes)");
+      return;
+    }
+
+    if (rampUp > duration) {
+      alert("Ramp-up time cannot exceed test duration");
+      return;
+    }
+
+    // Get auth config
+    const auth = getAuthConfig();
+
+    // Get HTTP method
+    const method = document.getElementById("method").value || "GET";
+
+    // Get request body
+    const bodyField = document.getElementById("body").value.trim();
+    let requestBodyPayload = null;
+    if (
+      bodyField &&
+      (method === "POST" || method === "PUT" || method === "PATCH")
+    ) {
+      // Validate JSON if provided
+      try {
+        JSON.parse(bodyField);
+        requestBodyPayload = bodyField;
+      } catch (e) {
+        alert("Invalid JSON in request body: " + e.message);
+        return;
+      }
+    }
+
+    // Get custom headers
+    const enableHeaders = document.getElementById("enableHeaders").checked;
+    let customHeaders = null;
+    if (enableHeaders) {
+      const headersField = document
+        .getElementById("customHeaders")
+        .value.trim();
+      if (headersField) {
+        try {
+          customHeaders = JSON.parse(headersField);
+          if (
+            typeof customHeaders !== "object" ||
+            Array.isArray(customHeaders)
+          ) {
+            alert("Headers must be a JSON object");
+            return;
+          }
+        } catch (e) {
+          alert("Invalid JSON in custom headers: " + e.message);
+          return;
+        }
+      }
+    }
+
+    // Get optional performance and circuit breaker settings
+    const maxConcurrentRequests =
+      parseInt(document.getElementById("maxConcurrentRequests").value) || 10;
+    const errorThreshold =
+      parseInt(document.getElementById("errorThreshold").value) || 0;
+
+    const requestBody = { host, users, ramp_up_sec: rampUp, duration };
+    if (auth) {
+      requestBody.auth = auth;
+    }
+    if (method && method !== "GET") {
+      requestBody.method = method;
+    }
+    if (requestBodyPayload) {
+      requestBody.body = requestBodyPayload;
+    }
+    if (customHeaders) {
+      requestBody.headers = customHeaders;
+    }
+    if (maxConcurrentRequests > 0 && maxConcurrentRequests !== 10) {
+      requestBody.max_concurrent_requests = maxConcurrentRequests;
+    }
+    if (errorThreshold > 0) {
+      requestBody.error_threshold = errorThreshold;
+    }
+
+    try {
+      const response = await fetch("/api/start", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        alert("Failed to start test: " + errorText);
+        return;
+      }
+
+      const data = await response.json();
+      currentTestId = data.test_uuid; // Use UUID instead of numeric ID
+
+      // Save test UUID to URL and localStorage
+      setTestUUIDInURL(currentTestId);
+      saveTestUUIDToStorage(currentTestId);
+
+      // Store test configuration
+      testStartTime = Date.now();
+      testDurationSeconds = duration;
+      testUsers = users;
+
+      // Store host for display
+      document.getElementById("currentHostUrl").textContent = maskUrl(host);
+
+      // Update overview fields using cache
+      domCache.virtualUsers.textContent = users;
+      domCache.testDuration.textContent = duration + "s";
+      domCache.elapsedTime.textContent = "0s";
+      domCache.remainingTime.textContent = duration + "s";
+      domCache.progressPercentage.textContent = "0%";
+      domCache.progressBarFill.style.width = "0%";
+
+      closeTestModal();
+      domCache.ctaSection.style.display = "none";
+      domCache.metricsSection.style.display = "block";
+      domCache.historySection.style.display = "none"; // Always hide history on test page
+
+      // Reset charts
+      resetCharts();
+      startMetricsPolling();
+      startTimeSeriesPolling();
+    } catch (error) {
+      alert("Error starting test: " + error.message);
+    }
+  });
+
+  // Theme toggle functionality
+  function initTheme() {
+    const themeToggle = document.getElementById("themeToggle");
+    const themeIcon = document.getElementById("themeIcon");
+    const themeText = document.getElementById("themeText");
+    const html = document.documentElement;
+
+    // Check for saved theme preference or default to dark mode
+    const savedTheme = localStorage.getItem("theme") || "dark";
+    html.setAttribute("data-theme", savedTheme);
+    updateThemeIcon(savedTheme === "dark", themeIcon, themeText);
+
+    themeToggle.addEventListener("click", () => {
+      const currentTheme = html.getAttribute("data-theme");
+      const newTheme = currentTheme === "dark" ? "light" : "dark";
+      html.setAttribute("data-theme", newTheme);
+      localStorage.setItem("theme", newTheme);
+      updateThemeIcon(newTheme === "dark", themeIcon, themeText);
+    });
+  }
+
+  function updateThemeIcon(isDark, icon, text) {
+    if (isDark) {
+      icon.innerHTML =
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+      text.textContent = "Light Mode";
+    } else {
+      icon.innerHTML =
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+      text.textContent = "Dark Mode";
+    }
+  }
+
+  // Update chart colors based on theme
+  function updateChartColors() {
+    const isDark =
+      document.documentElement.getAttribute("data-theme") === "dark";
+    const gridColor = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)";
+    const textColor = isDark ? "#94a3b8" : "#64748b";
+
+    if (throughputChart) {
+      throughputChart.options.scales.x.grid.color = gridColor;
+      throughputChart.options.scales.y.grid.color = gridColor;
+      throughputChart.options.scales.x.ticks.color = textColor;
+      throughputChart.options.scales.y.ticks.color = textColor;
+      throughputChart.update("none");
+    }
+
+    if (latencyChart) {
+      latencyChart.options.scales.x.grid.color = gridColor;
+      latencyChart.options.scales.y.grid.color = gridColor;
+      latencyChart.options.scales.x.ticks.color = textColor;
+      latencyChart.options.scales.y.ticks.color = textColor;
+      latencyChart.update("none");
+    }
+
+    if (successRateChart) {
+      successRateChart.options.scales.x.grid.color = gridColor;
+      successRateChart.options.scales.y.grid.color = gridColor;
+      successRateChart.options.scales.x.ticks.color = textColor;
+      successRateChart.options.scales.y.ticks.color = textColor;
+      successRateChart.update("none");
+    }
+  }
+
+  // Event delegation for history items
+  function setupEventDelegation() {
+    domCache.historyList.addEventListener("click", (e) => {
+      const historyItem = e.target.closest(".history-item");
+      if (!historyItem) return;
+
+      const testId = parseInt(historyItem.dataset.testId);
+      const testUUID = historyItem.dataset.testUuid;
+
+      // Handle button clicks
+      if (e.target.tagName === "BUTTON") {
+        const action = e.target.dataset.action;
+        if (action === "advanced") {
+          toggleAdvancedView(testId, testUUID);
+        } else if (action === "download") {
+          downloadReport(testId, testUUID);
+        }
+        return;
+      }
+
+      // Handle item click (expand/collapse)
+      if (!e.target.closest(".history-item-actions")) {
+        toggleHistoryDetails(testId);
+      }
+    });
+  }
+
+  // Real-time input validation
+  function setupInputValidation() {
+    const usersInput = document.getElementById("users");
+    const rampUpInput = document.getElementById("rampUp");
+    const durationInput = document.getElementById("duration");
+
+    function validateInput(input, min, max, fieldName) {
+      const value = parseInt(input.value);
+
+      if (isNaN(value) || value < min || value > max) {
+        input.setCustomValidity(
+          `${fieldName} must be between ${min} and ${max}`,
+        );
+        input.style.borderColor = "#ef4444";
+      } else {
+        input.setCustomValidity("");
+        input.style.borderColor = "";
+      }
+    }
+
+    usersInput.addEventListener("input", () => {
+      validateInput(usersInput, 1, 1000, "Users");
+    });
+
+    rampUpInput.addEventListener("input", () => {
+      validateInput(rampUpInput, 0, 300, "Ramp-up time");
+
+      // Also check if ramp-up exceeds duration
+      const duration = parseInt(durationInput.value);
+      const rampUp = parseInt(rampUpInput.value);
+      if (!isNaN(duration) && !isNaN(rampUp) && rampUp > duration) {
+        rampUpInput.setCustomValidity(
+          "Ramp-up time cannot exceed test duration",
+        );
+        rampUpInput.style.borderColor = "#ef4444";
+      }
+    });
+
+    durationInput.addEventListener("input", () => {
+      validateInput(durationInput, 1, 300, "Duration");
+
+      // Re-validate ramp-up when duration changes
+      const duration = parseInt(durationInput.value);
+      const rampUp = parseInt(rampUpInput.value);
+      if (!isNaN(duration) && !isNaN(rampUp) && rampUp > duration) {
+        rampUpInput.setCustomValidity(
+          "Ramp-up time cannot exceed test duration",
+        );
+        rampUpInput.style.borderColor = "#ef4444";
+      } else {
+        rampUpInput.setCustomValidity("");
+        rampUpInput.style.borderColor = "";
+      }
+    });
   }
 
   // Check for running tests and resume if found
