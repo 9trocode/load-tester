@@ -163,6 +163,45 @@ body {
     padding: 0.75rem;
 }
 
+/* Footer */
+.app-footer {
+    background: var(--pipeops-surface);
+    border-top: 1px solid var(--pipeops-border);
+    padding: 1.5rem 1rem;
+    margin-top: 2rem;
+}
+
+.footer-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.footer-content p {
+    color: var(--pipeops-text-light);
+    font-size: 0.875rem;
+    margin: 0;
+    font-weight: 500;
+}
+
+.footer-link {
+    color: var(--pipeops-primary);
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    border-bottom: 1px solid transparent;
+}
+
+.footer-link:hover {
+    color: var(--pipeops-primary-dark);
+    border-bottom-color: var(--pipeops-primary);
+}
+
+[data-theme="dark"] .app-footer {
+    background: var(--pipeops-surface);
+    border-top-color: var(--pipeops-border);
+}
+
 .content-layout {
     max-width: 1600px;
     margin: 0 auto;
@@ -1304,6 +1343,15 @@ select:focus {
 
     .card {
         padding: 0.75rem;
+    }
+
+    .app-footer {
+        padding: 1rem 0.5rem;
+        margin-top: 1.5rem;
+    }
+
+    .footer-content p {
+        font-size: 0.8125rem;
     }
 
     .header-content {
