@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"log/slog"
 	"time"
 
 	"os"
@@ -50,6 +51,8 @@ func InitDB() (*sql.DB, error) {
 		dbPath = "./data/loadtest.db"
 	}
 
+	slog.Info("Database initialization", "db_path", dbPath)
+
 	// Extract directory from database path
 	dbDir := "./data"
 	if dbPath != "./data/loadtest.db" {
@@ -66,10 +69,15 @@ func InitDB() (*sql.DB, error) {
 		}
 	}
 
+	slog.Info("Creating database directory", "db_dir", dbDir)
+
 	// Create data directory if it doesn't exist
 	if err := os.MkdirAll(dbDir, 0755); err != nil {
+		slog.Error("Failed to create database directory", "db_dir", dbDir, "error", err)
 		return nil, err
 	}
+
+	slog.Info("Database directory created successfully", "db_dir", dbDir)
 
 	// Enable WAL mode for better concurrent read performance
 	// SQLite connection string with WAL mode and connection pool settings

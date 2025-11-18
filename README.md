@@ -89,6 +89,27 @@ docker-compose up -d
 
 **Note:** The default `Dockerfile` uses Debian to avoid SQLite musl libc compatibility issues. For smaller images, use `Dockerfile.alpine`. See [DOCKER_BUILD.md](DOCKER_BUILD.md) for details on the build fix.
 
+### Docker Troubleshooting
+
+If you encounter database initialization errors in Docker:
+
+```
+ERROR: Failed to initialize database: unable to open database file: no such file or directory
+```
+
+**Quick Fix:**
+
+```bash
+# Run the automated fix script
+./fix-permissions.sh
+
+# Or manually fix permissions
+docker exec -u root pipeops-load-tester chown -R pipeops:pipeops /home/pipeops/app/data
+docker restart pipeops-load-tester
+```
+
+**For detailed troubleshooting**, see [docs/DOCKER_TROUBLESHOOTING.md](docs/DOCKER_TROUBLESHOOTING.md)
+
 ## Usage
 
 1. Start the server:

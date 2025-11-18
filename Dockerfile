@@ -50,6 +50,9 @@ COPY --from=builder --chown=pipeops:pipeops /app/load-tester .
 # Copy static files
 COPY --from=builder --chown=pipeops:pipeops /app/static ./static
 
+# Copy entrypoint script
+COPY --chown=pipeops:pipeops entrypoint.sh .
+
 # Create directory for database with proper permissions
 RUN mkdir -p /home/pipeops/app/data && \
     chown -R pipeops:pipeops /home/pipeops
@@ -67,6 +70,9 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 # Set environment variables
 ENV PORT=8080
 ENV DB_PATH=/home/pipeops/app/data/loadtest.db
+
+# Set entrypoint
+ENTRYPOINT ["./entrypoint.sh"]
 
 # Run the application
 CMD ["./load-tester"]
