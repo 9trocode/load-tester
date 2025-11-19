@@ -15,6 +15,7 @@ type TestRun struct {
 	ID                    int64             `json:"id"`
 	UUID                  string            `json:"uuid"`
 	Host                  string            `json:"host"`
+	MaskHost              bool              `json:"mask_host"`
 	TotalUsers            int               `json:"total_users"`
 	RampUpSec             int               `json:"ramp_up_sec"`
 	Duration              int               `json:"duration"`
@@ -104,6 +105,7 @@ func InitDB() (*sql.DB, error) {
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		uuid TEXT NOT NULL UNIQUE,
 		host TEXT NOT NULL,
+		mask_host INTEGER NOT NULL DEFAULT 0,
 		total_users INTEGER NOT NULL,
 		ramp_up_sec INTEGER NOT NULL,
 		duration INTEGER NOT NULL,
@@ -157,9 +159,9 @@ func SaveTestRun(db *sql.DB, testRun *TestRun) (int64, error) {
 	}
 
 	result, err := db.Exec(
-		`INSERT INTO test_runs (uuid, host, total_users, ramp_up_sec, duration, status, started_at, method, body, headers)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		testRun.UUID, testRun.Host, testRun.TotalUsers, testRun.RampUpSec, testRun.Duration, testRun.Status, testRun.StartedAt,
+		`INSERT INTO test_runs (uuid, host, mask_host, total_users, ramp_up_sec, duration, status, started_at, method, body, headers)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		testRun.UUID, testRun.Host, testRun.MaskHost, testRun.TotalUsers, testRun.RampUpSec, testRun.Duration, testRun.Status, testRun.StartedAt,
 		testRun.Method, testRun.Body, headersJSON,
 	)
 	if err != nil {
@@ -184,15 +186,16 @@ func GetTestRun(db *sql.DB, id int64) (*TestRun, error) {
 	var testRun TestRun
 	var completedAt sql.NullTime
 	var method, body, headersJSON sql.NullString
+	var maskHost sql.NullBool
 
 	err := db.QueryRow(
-		`SELECT id, uuid, host, total_users, ramp_up_sec, duration, status, started_at, completed_at,
+		`SELECT id, uuid, host, mask_host, total_users, ramp_up_sec, duration, status, started_at, completed_at,
 		 total_requests, success_count, error_count, avg_latency, min_latency, max_latency, rps,
 		 method, body, headers
 		 FROM test_runs WHERE id = ?`,
 		id,
 	).Scan(
-		&testRun.ID, &testRun.UUID, &testRun.Host, &testRun.TotalUsers, &testRun.RampUpSec, &testRun.Duration,
+		&testRun.ID, &testRun.UUID, &testRun.Host, &maskHost, &testRun.TotalUsers, &testRun.RampUpSec, &testRun.Duration,
 		&testRun.Status, &testRun.StartedAt, &completedAt,
 		&testRun.TotalRequests, &testRun.SuccessCount, &testRun.ErrorCount,
 		&testRun.AvgLatency, &testRun.MinLatency, &testRun.MaxLatency, &testRun.RPS,
@@ -218,6 +221,12 @@ func GetTestRun(db *sql.DB, id int64) (*TestRun, error) {
 			testRun.Headers = headers
 		}
 	}
+	if maskHost.Valid {
+		testRun.MaskHost = maskHost.Bool
+	}
+	if maskHost.Valid {
+		testRun.MaskHost = maskHost.Bool
+	}
 
 	return &testRun, nil
 }
@@ -226,15 +235,16 @@ func GetTestRunByUUID(db *sql.DB, uuid string) (*TestRun, error) {
 	var testRun TestRun
 	var completedAt sql.NullTime
 	var method, body, headersJSON sql.NullString
+	var maskHost sql.NullBool
 
 	err := db.QueryRow(
-		`SELECT id, uuid, host, total_users, ramp_up_sec, duration, status, started_at, completed_at,
+		`SELECT id, uuid, host, mask_host, total_users, ramp_up_sec, duration, status, started_at, completed_at,
 		 total_requests, success_count, error_count, avg_latency, min_latency, max_latency, rps,
 		 method, body, headers
 		 FROM test_runs WHERE uuid = ?`,
 		uuid,
 	).Scan(
-		&testRun.ID, &testRun.UUID, &testRun.Host, &testRun.TotalUsers, &testRun.RampUpSec, &testRun.Duration,
+		&testRun.ID, &testRun.UUID, &testRun.Host, &maskHost, &testRun.TotalUsers, &testRun.RampUpSec, &testRun.Duration,
 		&testRun.Status, &testRun.StartedAt, &completedAt,
 		&testRun.TotalRequests, &testRun.SuccessCount, &testRun.ErrorCount,
 		&testRun.AvgLatency, &testRun.MinLatency, &testRun.MaxLatency, &testRun.RPS,
@@ -266,7 +276,7 @@ func GetTestRunByUUID(db *sql.DB, uuid string) (*TestRun, error) {
 
 func GetTopTestRuns(db *sql.DB, limit int) ([]TestRun, error) {
 	rows, err := db.Query(
-		`SELECT id, uuid, host, total_users, ramp_up_sec, duration, status, started_at, completed_at,
+		`SELECT id, uuid, host, mask_host, total_users, ramp_up_sec, duration, status, started_at, completed_at,
 		 total_requests, success_count, error_count, avg_latency, min_latency, max_latency, rps,
 		 method, body, headers
 		 FROM test_runs
@@ -284,9 +294,10 @@ func GetTopTestRuns(db *sql.DB, limit int) ([]TestRun, error) {
 		var testRun TestRun
 		var completedAt sql.NullTime
 		var method, body, headersJSON sql.NullString
+		var maskHost sql.NullBool
 
 		err := rows.Scan(
-			&testRun.ID, &testRun.UUID, &testRun.Host, &testRun.TotalUsers, &testRun.RampUpSec, &testRun.Duration,
+			&testRun.ID, &testRun.UUID, &testRun.Host, &maskHost, &testRun.TotalUsers, &testRun.RampUpSec, &testRun.Duration,
 			&testRun.Status, &testRun.StartedAt, &completedAt,
 			&testRun.TotalRequests, &testRun.SuccessCount, &testRun.ErrorCount,
 			&testRun.AvgLatency, &testRun.MinLatency, &testRun.MaxLatency, &testRun.RPS,
@@ -311,6 +322,9 @@ func GetTopTestRuns(db *sql.DB, limit int) ([]TestRun, error) {
 			if err := json.Unmarshal([]byte(headersJSON.String), &headers); err == nil {
 				testRun.Headers = headers
 			}
+		}
+		if maskHost.Valid {
+			testRun.MaskHost = maskHost.Bool
 		}
 
 		testRuns = append(testRuns, testRun)
