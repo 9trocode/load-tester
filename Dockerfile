@@ -45,6 +45,7 @@ COPY --from=builder /app/load-tester .
 
 # Copy static files
 COPY --from=builder /app/static ./static
+COPY --from=builder /app/migrations ./migrations
 
 # Create directory for database
 RUN mkdir -p /home/pipeops/app/data
