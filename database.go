@@ -3,13 +3,18 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log/slog"
-	"time"
-
 	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 )
+
+const migrationsDir = "./migrations"
 
 type TestRun struct {
 	ID                    int64             `json:"id"`
@@ -32,9 +37,9 @@ type TestRun struct {
 	Method                string            `json:"method,omitempty"`
 	Body                  string            `json:"body,omitempty"`
 	Headers               map[string]string `json:"headers,omitempty"`
-	MaxConcurrentRequests int               `json:"max_concurrent_requests,omitempty"` // Max concurrent requests per user
-	ErrorThreshold        float64           `json:"error_threshold,omitempty"`         // Error rate threshold to trigger circuit breaker (0-100)
-	StoppedByCircuit      bool              `json:"stopped_by_circuit,omitempty"`      // Whether test was stopped by circuit breaker
+	MaxConcurrentRequests int               `json:"max_concurrent_requests,omitempty"`
+	ErrorThreshold        float64           `json:"error_threshold,omitempty"`
+	StoppedByCircuit      bool              `json:"stopped_by_circuit,omitempty"`
 }
 
 type RequestMetric struct {
@@ -46,7 +51,6 @@ type RequestMetric struct {
 }
 
 func InitDB() (*sql.DB, error) {
-	// Get database path from environment variable or use default
 	dbPath := os.Getenv("DB_PATH")
 	if dbPath == "" {
 		dbPath = "./data/loadtest.db"
@@ -54,52 +58,35 @@ func InitDB() (*sql.DB, error) {
 
 	slog.Info("Database initialization", "db_path", dbPath)
 
-	// Extract directory from database path
 	dbDir := "./data"
 	if dbPath != "./data/loadtest.db" {
-		// If custom path is provided, extract directory
-		lastSlash := -1
-		for i := len(dbPath) - 1; i >= 0; i-- {
-			if dbPath[i] == '/' {
-				lastSlash = i
-				break
-			}
-		}
+		lastSlash := strings.LastIndex(dbPath, "/")
 		if lastSlash > 0 {
 			dbDir = dbPath[:lastSlash]
 		}
 	}
 
 	slog.Info("Creating database directory", "db_dir", dbDir)
-
-	// Create data directory if it doesn't exist
-	if err := os.MkdirAll(dbDir, 0755); err != nil {
+	if err := os.MkdirAll(dbDir, 0o755); err != nil {
 		slog.Error("Failed to create database directory", "db_dir", dbDir, "error", err)
 		return nil, err
 	}
 
-	slog.Info("Database directory created successfully", "db_dir", dbDir)
+	slog.Info("Database directory ready", "db_dir", dbDir)
 
-	// Enable WAL mode for better concurrent read performance
-	// SQLite connection string with WAL mode and connection pool settings
-	// Database path can be configured via DB_PATH environment variable
 	db, err := sql.Open("sqlite3", dbPath+"?_journal_mode=WAL&_busy_timeout=5000&_foreign_keys=1")
 	if err != nil {
 		return nil, err
 	}
 
-	// Configure connection pool for better concurrency
-	// SQLite has limitations, but we can still optimize
-	db.SetMaxOpenConns(25)                 // SQLite recommends 1, but we use more for read-heavy workloads
-	db.SetMaxIdleConns(5)                  // Keep some connections idle
-	db.SetConnMaxLifetime(5 * time.Minute) // Recycle connections periodically
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(5 * time.Minute)
 
-	// Test the connection
 	if err := db.Ping(); err != nil {
 		return nil, err
 	}
 
-	// Create tables
 	createTableSQL := `
 	CREATE TABLE IF NOT EXISTS test_runs (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -139,16 +126,123 @@ func InitDB() (*sql.DB, error) {
 	CREATE INDEX IF NOT EXISTS idx_request_metrics_test_run ON request_metrics(test_run_id);
 	`
 
-	_, err = db.Exec(createTableSQL)
-	if err != nil {
+	if _, err := db.Exec(createTableSQL); err != nil {
+		return nil, err
+	}
+
+	if err := applyMigrations(db); err != nil {
 		return nil, err
 	}
 
 	return db, nil
 }
 
+func applyMigrations(db *sql.DB) error {
+	if err := ensureMigrationTable(db); err != nil {
+		return err
+	}
+
+	entries, err := os.ReadDir(migrationsDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			slog.Info("No migrations directory found; skipping migrations")
+			return nil
+		}
+		return err
+	}
+
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name() < entries[j].Name()
+	})
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		name := entry.Name()
+		if !strings.HasSuffix(strings.ToLower(name), ".sql") {
+			continue
+		}
+
+		applied, err := isMigrationApplied(db, name)
+		if err != nil {
+			return err
+		}
+		if applied {
+			continue
+		}
+
+		if err := executeMigration(db, name); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func ensureMigrationTable(db *sql.DB) error {
+	_, err := db.Exec(`
+	CREATE TABLE IF NOT EXISTS schema_migrations (
+		name TEXT PRIMARY KEY,
+		applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	)`)
+	return err
+}
+
+func isMigrationApplied(db *sql.DB, name string) (bool, error) {
+	var count int
+	if err := db.QueryRow("SELECT COUNT(1) FROM schema_migrations WHERE name = ?", name).Scan(&count); err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func executeMigration(db *sql.DB, name string) error {
+	path := filepath.Join(migrationsDir, name)
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	sqlStmt := strings.TrimSpace(string(content))
+	if sqlStmt == "" {
+		slog.Info("Skipping empty migration file", "migration", name)
+		return recordMigration(db, name)
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+
+	if _, err := tx.Exec(sqlStmt); err != nil {
+		errorLower := strings.ToLower(err.Error())
+		if !strings.Contains(errorLower, "duplicate column") {
+			tx.Rollback()
+			return fmt.Errorf("migration %s failed: %w", name, err)
+		}
+		slog.Info("Migration already applied (column exists)", "migration", name, "error", err)
+	}
+
+	if err := recordMigration(tx, name); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func recordMigration(exec sqlExec, name string) error {
+	_, err := exec.Exec("INSERT INTO schema_migrations (name) VALUES (?)", name)
+	return err
+}
+
+type sqlExec interface {
+	Exec(query string, args ...interface{}) (sql.Result, error)
+}
+
 func SaveTestRun(db *sql.DB, testRun *TestRun) (int64, error) {
-	// Serialize headers to JSON
 	var headersJSON string
 	if testRun.Headers != nil && len(testRun.Headers) > 0 {
 		headersBytes, err := json.Marshal(testRun.Headers)
