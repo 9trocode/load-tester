@@ -147,6 +147,7 @@ func (tm *TestManager) HandleStartTest(w http.ResponseWriter, r *http.Request) {
 
 	var req struct {
 		Host                  string            `json:"host"`
+		MaskHost              bool              `json:"mask_host"`
 		Users                 int               `json:"users"`
 		RampUpSec             int               `json:"ramp_up_sec"`
 		Duration              int               `json:"duration"`
@@ -289,6 +290,7 @@ func (tm *TestManager) HandleStartTest(w http.ResponseWriter, r *http.Request) {
 	testRun := &TestRun{
 		UUID:                  testUUID,
 		Host:                  req.Host,
+		MaskHost:		req.MaskHost,
 		TotalUsers:            req.Users,
 		RampUpSec:             req.RampUpSec,
 		Duration:              req.Duration,
@@ -999,6 +1001,7 @@ func (tm *TestManager) HandleGetRunningTests(w http.ResponseWriter, r *http.Requ
 			"test_id":     testCtx.TestRun.ID,
 			"test_uuid":   testUUID,
 			"host":        testCtx.TestRun.Host,
+			"mask_host":   testCtx.TestRun.MaskHost,
 			"total_users": testCtx.TestRun.TotalUsers,
 			"duration":    testCtx.TestRun.Duration,
 			"started_at":  testCtx.TestRun.StartedAt,

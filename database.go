@@ -105,7 +105,7 @@ func InitDB() (*sql.DB, error) {
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		uuid TEXT NOT NULL UNIQUE,
 		host TEXT NOT NULL,
-		mask_host INTEGER NOT NULL DEFAULT 0,
+		mask_host INTEGER NOT NULL DEFAULT 1,
 		total_users INTEGER NOT NULL,
 		ramp_up_sec INTEGER NOT NULL,
 		duration INTEGER NOT NULL,
@@ -223,9 +223,8 @@ func GetTestRun(db *sql.DB, id int64) (*TestRun, error) {
 	}
 	if maskHost.Valid {
 		testRun.MaskHost = maskHost.Bool
-	}
-	if maskHost.Valid {
-		testRun.MaskHost = maskHost.Bool
+	} else {
+		testRun.MaskHost = true
 	}
 
 	return &testRun, nil
@@ -269,6 +268,11 @@ func GetTestRunByUUID(db *sql.DB, uuid string) (*TestRun, error) {
 		if err := json.Unmarshal([]byte(headersJSON.String), &headers); err == nil {
 			testRun.Headers = headers
 		}
+	}
+	if maskHost.Valid {
+		testRun.MaskHost = maskHost.Bool
+	} else {
+		testRun.MaskHost = true
 	}
 
 	return &testRun, nil
@@ -325,6 +329,8 @@ func GetTopTestRuns(db *sql.DB, limit int) ([]TestRun, error) {
 		}
 		if maskHost.Valid {
 			testRun.MaskHost = maskHost.Bool
+		} else {
+			testRun.MaskHost = true
 		}
 
 		testRuns = append(testRuns, testRun)

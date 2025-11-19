@@ -149,7 +149,11 @@ async function resumeTest(testUUID) {
     }
 
     // Set the host URL
-    domCache.currentHostUrl.textContent = maskUrl(testRun.host);
+    const currentHostDisplay = formatHostForDisplay(
+      testRun.host,
+      testRun.mask_host,
+    );
+    domCache.currentHostUrl.textContent = currentHostDisplay;
     domCache.virtualUsers.textContent = testRun.total_users;
     domCache.testDuration.textContent = formatTime(testRun.duration);
 
@@ -661,10 +665,14 @@ function displayHistory(history) {
         ? ((test.success_count / test.total_requests) * 100).toFixed(1)
         : 0;
 
+    const historyHostDisplay = escapeHtml(
+      formatHostForDisplay(test.host, test.mask_host),
+    );
+
     htmlParts[i] = `
         <div class="history-item" data-test-id="${test.id}" data-test-uuid="${test.uuid}">
             <div class="history-item-header">
-                <div class="history-item-url">${escapeHtml(maskUrl(test.host))}</div>
+                <div class="history-item-url">${historyHostDisplay}</div>
                 <div class="history-item-meta">
                     <span class="status-badge status-${test.status}">${test.status}</span>
                     <span class="history-item-time">${formatDate(test.started_at)}</span>
@@ -1049,6 +1057,12 @@ function maskUrl(url, maskLevel = CURRENT_MASK_LEVEL) {
   return `${protocol}//${maskedHostname}${maskedPort}`;
 }
 
+function formatHostForDisplay(host, maskHost) {
+  const shouldMask =
+    maskHost === undefined || maskHost === null ? true : maskHost;
+  return shouldMask ? maskUrl(host) : host;
+}
+
 // Additional masking utilities
 function maskIP(ip) {
   if (!ip) return "-";
@@ -1085,7 +1099,8 @@ function generateTestSummary(test) {
       ? ((test.success_count / test.total_requests) * 100).toFixed(1)
       : 0;
 
-  return `Tested ${maskUrl(test.host)} with ${test.total_users} virtual user${test.total_users !== 1 ? "s" : ""} for ${test.duration}s - ${successRate}% success rate, ${test.rps.toFixed(2)} RPS, ${test.avg_latency.toFixed(2)}ms avg latency`;
+  const hostLabel = formatHostForDisplay(test.host, test.mask_host);
+  return `Tested ${hostLabel} with ${test.total_users} virtual user${test.total_users !== 1 ? "s" : ""} for ${test.duration}s - ${successRate}% success rate, ${test.rps.toFixed(2)} RPS, ${test.avg_latency.toFixed(2)}ms avg latency`;
 }
 
 // Modal functions
@@ -1117,6 +1132,10 @@ function resetForm() {
   document.getElementById("enableHeaders").checked = false;
   document.getElementById("customHeaders").value = "";
   document.getElementById("headersConfig").style.display = "none";
+  const maskHostToggle = document.getElementById("maskHostToggle");
+  if (maskHostToggle) {
+    maskHostToggle.checked = false;
+  }
   collapseAdvancedOptions();
 }
 
@@ -1580,9 +1599,13 @@ function createRunningTestItem(test) {
   const remainingSeconds = Math.max(0, test.duration - elapsedSeconds);
   const remainingTime = formatTime(remainingSeconds);
 
+  const runningHostDisplay = escapeHtml(
+    formatHostForDisplay(test.host, test.mask_host),
+  );
+
   item.innerHTML = `
     <div class="running-test-header">
-      <div class="running-test-url">${maskUrl(test.host)}</div>
+      <div class="running-test-url">${runningHostDisplay}</div>
       <div class="running-test-status">
         <span class="status-dot"></span>
         <span>Running</span>
@@ -1838,7 +1861,11 @@ window.addEventListener("DOMContentLoaded", async () => {
     const errorThreshold =
       parseInt(document.getElementById("errorThreshold").value) || 0;
 
+    const maskHostToggle = document.getElementById("maskHostToggle");
+    const maskHost = maskHostToggle ? maskHostToggle.checked : false;
+
     const requestBody = { host, users, ramp_up_sec: rampUp, duration };
+    requestBody.mask_host = maskHost;
     if (auth) {
       requestBody.auth = auth;
     }

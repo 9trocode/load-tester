@@ -12,6 +12,12 @@ This directory contains SQL migration scripts for the PipeOps Load Tester databa
   - Added `body` column (TEXT, optional)
   - Added `headers` column (TEXT, stores JSON string)
 
+### 002_add_mask_host_flag.sql
+- **Date**: 2024-10
+- **Description**: Adds a per-test `mask_host` flag so the UI can respect user preferences.
+- **Changes**:
+  - Added `mask_host` column (INTEGER NOT NULL DEFAULT 1) to `test_runs`
+
 ## Running Migrations
 
 The migrations in this directory have already been applied to the database. They serve as documentation of schema changes.
