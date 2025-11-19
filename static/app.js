@@ -1885,6 +1885,11 @@ window.addEventListener("DOMContentLoaded", async () => {
       requestBody.error_threshold = errorThreshold;
     }
 
+    const startBtn = document.getElementById("startBtn");
+    if (startBtn) {
+      startBtn.disabled = true;
+    }
+
     try {
       const response = await fetch("/api/start", {
         method: "POST",
@@ -1896,6 +1901,9 @@ window.addEventListener("DOMContentLoaded", async () => {
 
       if (!response.ok) {
         const errorText = await response.text();
+        if (startBtn) {
+          startBtn.disabled = false;
+        }
         alert("Failed to start test: " + errorText);
         return;
       }
@@ -1912,6 +1920,9 @@ window.addEventListener("DOMContentLoaded", async () => {
       // Navigate to test page immediately
       window.location.href = `/test/${currentTestId}`;
     } catch (error) {
+      if (startBtn) {
+        startBtn.disabled = false;
+      }
       alert("Error starting test: " + error.message);
     }
   });
