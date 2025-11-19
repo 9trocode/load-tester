@@ -1,10 +1,11 @@
 # Database Migrations
 
-This directory contains SQL migration scripts for the PipeOps Load Tester database.
+This directory contains SQL migration scripts for the Load Tester database.
 
 ## Migration History
 
 ### 001_add_http_fields.sql
+
 - **Date**: 2024
 - **Description**: Adds support for custom HTTP methods, request bodies, and headers
 - **Changes**:
@@ -13,6 +14,7 @@ This directory contains SQL migration scripts for the PipeOps Load Tester databa
   - Added `headers` column (TEXT, stores JSON string)
 
 ### 002_add_mask_host_flag.sql
+
 - **Date**: 2024-10
 - **Description**: Adds a per-test `mask_host` flag so the UI can respect user preferences.
 - **Changes**:
