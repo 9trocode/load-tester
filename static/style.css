@@ -65,12 +65,11 @@ body {
 }
 
 .header-content {
-    max-width: 1100px;
+    max-width: 1600px;
     margin: 0 auto;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0 1rem;
 }
 
 .header-content .header-actions {
@@ -173,10 +172,9 @@ body {
 }
 
 .footer-content {
-    max-width: 1100px;
+    max-width: 1200px;
     margin: 0 auto;
     text-align: center;
-    padding: 0 1rem;
 }
 
 .footer-content p {
@@ -205,12 +203,11 @@ body {
 }
 
 .content-layout {
-    max-width: 1100px;
+    max-width: 1600px;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
-    padding: 0 1rem;
 }
 
 /* Card Component - Compact and Modern */
